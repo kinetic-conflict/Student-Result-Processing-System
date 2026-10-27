@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if action == 'add' %}Add Subject - {% elif action == 'edit' %}Edit Subject - {% endif %}
+    Subject Management
+{% endblock %}
+
+{% block content %}
+{% if action == 'add' %}
+<h1 class="mb-4">Add New Subject</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('subjects.add_subject') }}">
+                    <div class="mb-3">
+                        <label for="subject_code" class="form-label">Subject Code *</label>
+                        <input type="text" class="form-control" id="subject_code" name="subject_code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject_name" class="form-label">Subject Name *</label>
+                        <input type="text" class="form-control" id="subject_name" name="subject_name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="credits" class="form-label">Credits *</label>
+                            <input type="number" class="form-control" id="credits" name="credits" step="0.1" min="0.1" max="10" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="semester" class="form-label">Semester *</label>
+                            <input type="number" class="form-control" id="semester" name="semester" min="1" max="10" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Subject</button>
+                    <a href="{{ url_for('subjects.list_subjects') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif action == 'edit' %}
+<h1 class="mb-4">Edit Subject</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('subjects.edit_subject', subject_id=subject.subject_id) }}">
+                    <div class="mb-3">
+                        <label for="subject_code" class="form-label">Subject Code</label>
+                        <input type="text" class="form-control" id="subject_code" value="{{ subject.subject_code }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject_name" class="form-label">Subject Name *</label>
+                        <input type="text" class="form-control" id="subject_name" name="subject_name" value="{{ subject.subject_name }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="credits" class="form-label">Credits *</label>
+                            <input type="number" class="form-control" id="credits" name="credits" step="0.1" min="0.1" max="10" value="{{ subject.credits }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="semester" class="form-label">Semester *</label>
+                            <input type="number" class="form-control" id="semester" name="semester" min="1" max="10" value="{{ subject.semester }}" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Subject</button>
+                    <a href="{{ url_for('subjects.list_subjects') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<h1 class="mb-4">Subject Management</h1>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <form method="GET" action="{{ url_for('subjects.list_subjects') }}">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Search by subject code or name..." value="{{ search }}">
+                <button type="submit" class="btn btn-primary">Search</button>
+                {% if search %}
+                <a href="{{ url_for('subjects.list_subjects') }}" class="btn btn-secondary">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('subjects.add_subject') }}" class="btn btn-primary">Add New Subject</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if subjects %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Subject Code</th>
+                        <th>Subject Name</th>
+                        <th>Credits</th>
+                        <th>Semester</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in subjects %}
+                    <tr>
+                        <td>{{ subject.subject_code }}</td>
+                        <td>{{ subject.subject_name }}</td>
+                        <td>{{ subject.credits }}</td>
+                        <td>{{ subject.semester }}</td>
+                        <td>
+                            <a href="{{ url_for('subjects.edit_subject', subject_id=subject.subject_id) }}" class="btn btn-sm btn-warning">Edit</a>
+                            <form method="POST" action="{{ url_for('subjects.delete_subject', subject_id=subject.subject_id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-danger btn-delete">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted">No subjects found. {% if search %}Try a different search term.{% else %}Add a subject to get started.{% endif %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

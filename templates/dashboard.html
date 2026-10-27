@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Student Result Processing System{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard</h1>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h3>{{ total_students }}</h3>
+                <p class="card-text">Total Students</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h3>{{ total_subjects }}</h3>
+                <p class="card-text">Total Subjects</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h3>{{ total_examinations }}</h3>
+                <p class="card-text">Total Examinations</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h3>{{ total_marks }}</h3>
+                <p class="card-text">Total Marks Records</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Marks Entries</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_marks %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Registration No.</th>
+                                <th>Student Name</th>
+                                <th>Subject</th>
+                                <th>Examination</th>
+                                <th>Marks Obtained</th>
+                                <th>Maximum Marks</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mark in recent_marks %}
+                            <tr>
+                                <td>{{ mark.registration_number }}</td>
+                                <td>{{ mark.full_name }}</td>
+                                <td>{{ mark.subject_code }} - {{ mark.subject_name }}</td>
+                                <td>{{ mark.exam_name }}</td>
+                                <td>{{ mark.marks_obtained }}</td>
+                                <td>{{ mark.maximum_marks }}</td>
+                                <td>{{ "%.2f"|format((mark.marks_obtained / mark.maximum_marks * 100)) }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No marks entries yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Actions</h5>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('students.add_student') }}" class="btn btn-primary">Add Student</a>
+                    <a href="{{ url_for('subjects.add_subject') }}" class="btn btn-primary">Add Subject</a>
+                    <a href="{{ url_for('examinations.add_examination') }}" class="btn btn-primary">Add Examination</a>
+                    <a href="{{ url_for('marks.add_mark') }}" class="btn btn-primary">Enter Marks</a>
+                    <a href="{{ url_for('reports.reports_index') }}" class="btn btn-secondary">View Reports</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

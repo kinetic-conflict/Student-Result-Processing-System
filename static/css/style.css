@@ -1,0 +1,103 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    border-left: 4px solid #0d6efd;
+}
+
+.stat-card h3 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.alert {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+}
+
+.badge {
+    font-size: 0.875em;
+}
+
+.grade-S {
+    background-color: #0d6efd;
+}
+
+.grade-A {
+    background-color: #198754;
+}
+
+.grade-B {
+    background-color: #20c997;
+}
+
+.grade-C {
+    background-color: #0dcaf0;
+}
+
+.grade-D {
+    background-color: #ffc107;
+}
+
+.grade-E {
+    background-color: #fd7e14;
+}
+
+.grade-F {
+    background-color: #dc3545;
+}
+
+.pass-Pass {
+    background-color: #198754;
+}
+
+.pass-Fail {
+    background-color: #dc3545;
+}
+
+.pass-Incomplete {
+    background-color: #6c757d;
+}
+
+@media print {
+    .navbar, .btn, footer {
+        display: none !important;
+    }
+    
+    .container {
+        width: 100%;
+        max-width: none;
+    }
+}
