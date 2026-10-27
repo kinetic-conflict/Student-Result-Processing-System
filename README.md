@@ -152,7 +152,7 @@ Edit the `.env` file with your MySQL credentials:
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=DBMS@Vellore2026
+DB_PASSWORD=localpass
 DB_NAME=student_result_db
 ```
 
