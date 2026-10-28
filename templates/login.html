@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Sign in - Student Result Processing System{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block main_class %}my-auto py-4{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-7 col-lg-5 col-xl-4">
+        <div class="auth-brand">
+            <span class="brand-mark">{{ icon('graduation-cap', 26) }}</span>
+            <div>
+                <h1 class="h4 mb-1">Sign in</h1>
+                <p class="text-muted mb-0">Student Result Processing System</p>
+            </div>
+        </div>
+        <div class="card auth-card">
+            <div class="card-body p-4">
+                {% if error %}
+                <div class="alert alert-danger" role="alert">{{ error }}</div>
+                {% endif %}
+                <form method="post" action="{{ url_for('auth.login', next=next or none) }}" novalidate>
+                    {{ csrf_input() }}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username or email</label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="{{ username }}" autocomplete="username" autofocus required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               autocomplete="current-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Sign in</button>
+                </form>
+                <p class="small text-muted mt-3 mb-0">Accounts are created by an administrator.
+                    If you cannot sign in, ask them to reset your password.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

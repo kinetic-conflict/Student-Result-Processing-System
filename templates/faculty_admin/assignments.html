@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import choice with context %}
+{% block title %}Subject assignments - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">{{ member.full_name }}</h1>
+        <p class="text-muted mb-0">{{ member.employee_id }} &middot; subject assignments</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('faculty_admin.list_faculty') }}">Back</a>
+</div>
+<p class="text-muted">A faculty member can enter and correct marks for the subjects below, for students in the
+    same semester as the subject.</p>
+
+<div class="table-responsive mb-4">
+    <table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Code</th><th scope="col">Subject</th><th scope="col">Semester</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+        {% for subject in assigned %}
+        <tr><td>{{ subject.subject_code }}</td><td>{{ subject.subject_name }}</td><td>{{ subject.semester }}</td>
+            <td class="text-end">
+                <form method="post" class="d-inline"
+                      action="{{ url_for('faculty_admin.remove_assignment', faculty_id=member.faculty_id, assignment_id=subject.assignment_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Remove {{ subject.subject_code }} from {{ member.full_name }}?">Remove</button>
+                </form></td></tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-4">No subjects assigned yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if available %}
+<form method="post" class="row g-2 align-items-end" action="{{ url_for('faculty_admin.add_assignment', faculty_id=member.faculty_id) }}">
+    {{ csrf_input() }}
+    <div class="col-12 col-md-8">
+        <label class="form-label" for="subject_id">Assign a subject</label>
+        <select class="form-select" id="subject_id" name="subject_id" required>
+            <option value="">Select subject</option>
+            {% for subject in available %}
+            <option value="{{ subject.subject_id }}">{{ subject.subject_code }} - {{ subject.subject_name }} (semester {{ subject.semester }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-4"><button class="btn btn-primary w-100" type="submit">Assign</button></div>
+</form>
+{% endif %}
+{% endblock %}

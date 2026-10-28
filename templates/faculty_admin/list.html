@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_form, pager with context %}
+{% block title %}Faculty - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Faculty</h1>
+    <a class="btn btn-primary" href="{{ url_for('faculty_admin.new_faculty') }}">Add faculty member</a>
+</div>
+{{ search_form(search, 'Employee ID, name or email') }}
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Employee ID</th><th scope="col">Name</th><th scope="col">Department</th>
+            <th scope="col" class="text-end">Subjects</th><th scope="col">Login</th><th scope="col">Status</th>
+            <th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+        {% for member in faculty %}
+        <tr>
+            <td>{{ member.employee_id }}</td>
+            <td>{{ member.full_name }}{% if member.email %}<br><small class="text-muted">{{ member.email }}</small>{% endif %}</td>
+            <td>{{ member.department or '—' }}</td>
+            <td class="text-end">{{ member.subject_count }}</td>
+            <td>{{ member.username or 'None yet' }}</td>
+            <td>{% if member.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-danger">Inactive</span>{% endif %}</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('faculty_admin.assignments', faculty_id=member.faculty_id) }}">Subjects</a>
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('faculty_admin.edit_faculty', faculty_id=member.faculty_id) }}">Edit</a>
+                {% if member.is_active %}
+                <form method="post" class="d-inline" action="{{ url_for('faculty_admin.deactivate_faculty', faculty_id=member.faculty_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Deactivate {{ member.full_name }} and disable their login?">Deactivate</button>
+                </form>
+                {% else %}
+                <form method="post" class="d-inline" action="{{ url_for('faculty_admin.activate_faculty', faculty_id=member.faculty_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No faculty found.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{{ pager(page) }}
+{% endblock %}

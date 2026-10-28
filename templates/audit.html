@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import search_form, pager with context %}
+{% block title %}Audit log - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Audit log</h1>
+{{ search_form(search, 'Action, user, record or detail') }}
+<div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+        <thead><tr><th scope="col">When</th><th scope="col">User</th><th scope="col">Action</th>
+            <th scope="col">Record</th><th scope="col">Detail</th><th scope="col">From</th></tr></thead>
+        <tbody>
+        {% for entry in entries %}
+        <tr><td class="text-nowrap">{{ entry.created_at }}</td><td>{{ entry.username or 'system' }}</td>
+            <td><code>{{ entry.action }}</code></td>
+            <td>{{ entry.entity }}{% if entry.entity_id %} #{{ entry.entity_id }}{% endif %}</td>
+            <td>{{ entry.detail or '' }}</td><td>{{ entry.ip_address or '' }}</td></tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Nothing recorded yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{{ pager(page) }}
+{% endblock %}

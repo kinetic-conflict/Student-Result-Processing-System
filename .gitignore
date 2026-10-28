@@ -16,14 +16,19 @@ node_modules/
 # Logs
 *.log
 
-# Local database files and backups
+# Local database files and backups (dumps hold personal data)
 *.sqlite3
 *.db
 *.bak
 *.backup
+*.dump
+backups/
 
 # IDE and operating system files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Browser-automation scratch output
+.playwright-mcp/

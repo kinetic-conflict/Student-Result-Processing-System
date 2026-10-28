@@ -2,7 +2,8 @@
 -- This script adds support for 6-component assessment system
 -- It preserves existing data by migrating it to the new structure
 -- Execute this AFTER schema.sql and seed.sql have been run
--- This migration is safe to run multiple times (uses IF NOT EXISTS)
+-- Run it once, when setting up. Re-running is harmless for the tables, but step 5 copies the legacy
+-- marks again, which would bring back any copied mark that was deleted since.
 
 USE student_result_db;
 

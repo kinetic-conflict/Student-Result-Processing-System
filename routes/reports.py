@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request
 from db import execute_query
-from services.result_service import process_marks_with_result, calculate_student_result
+from services.exam_results import student_exam_results
+from services.result_service import process_marks_with_result
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -22,37 +23,8 @@ def student_report():
         if student:
             student = student[0]
             
-            # Get all marks for this student
-            marks_query = """
-                SELECT m.*, s.subject_code, s.subject_name, s.credits,
-                       e.exam_name, e.academic_year, e.semester
-                FROM marks m
-                JOIN subjects s ON m.subject_id = s.subject_id
-                JOIN examinations e ON m.exam_id = e.exam_id
-                WHERE m.student_id = %s
-                ORDER BY e.exam_date DESC, s.subject_code
-            """
-            marks = execute_query(marks_query, (student['student_id'],))
-            marks = process_marks_with_result(marks)
-            
-            # Group marks by examination
-            exams = {}
-            for mark in marks:
-                exam_key = mark['exam_id']
-                if exam_key not in exams:
-                    exams[exam_key] = {
-                        'exam_name': mark['exam_name'],
-                        'academic_year': mark['academic_year'],
-                        'semester': mark['semester'],
-                        'marks': []
-                    }
-                exams[exam_key]['marks'].append(mark)
-            
-            # Calculate overall result for each exam
-            for exam_id, exam_data in exams.items():
-                result = calculate_student_result(exam_data['marks'])
-                exam_data['result'] = result
-            
+            exams = student_exam_results(student['student_id'])
+
             return render_template('reports.html', report_type='student', student=student, 
                                  exams=exams, registration_number=registration_number)
         else:

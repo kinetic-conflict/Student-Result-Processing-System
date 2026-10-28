@@ -1,3 +1,6 @@
+> **Historical document.** Written for an earlier version of the project, before sign-in, roles and the
+> migration runner existed. Set-up steps and feature lists here may be out of date. See `README.md` for the current ones.
+
 # Student Result Processing System - Upgrade Summary
 
 ## Overview
@@ -49,7 +52,7 @@ October 28, 2026
 - 24BIT0237: 2024 Information Technology student
 - 25BAI0493: 2025 Artificial Intelligence student
 
-**Email Pattern**: firstname.lastnameYYYY@vitstudent.ac.in
+**Email Pattern**: firstname.lastnameYYYY@students.example (sample data only)
 - YYYY matches admission year
 
 **Program Codes**:

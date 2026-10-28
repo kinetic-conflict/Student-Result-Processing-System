@@ -33,7 +33,7 @@
     </div>
 </div>
 
-{% for exam_id, exam_data in exams.items() %}
+{% for exam_data in exams %}
 <div class="card mb-4">
     <div class="card-header">
         <h5 class="card-title mb-0">{{ exam_data.exam_name }} - {{ exam_data.academic_year }} (Semester {{ exam_data.semester }})</h5>
@@ -310,6 +310,7 @@
 
 {% elif report_type == 'top_performers' %}
 <h1 class="mb-4">Top Performing Students (85% and above)</h1>
+<p class="text-muted">The 85% cut-off is a working assumption of this report, not a rule from the grading policy.</p>
 
 <div class="card">
     <div class="card-body">
@@ -390,6 +391,8 @@
 
 {% elif report_type == 'incomplete' %}
 <h1 class="mb-4">Students with Incomplete Results</h1>
+<p class="text-muted">Lists students with fewer than 5 subjects recorded. The figure 5 is a working assumption
+    of this report, not a rule from the grading policy.</p>
 
 <div class="card">
     <div class="card-body">

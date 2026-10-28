@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Assessment settings - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Assessment settings</h1>
+<div class="alert alert-warning" role="note">
+    These numbers decide every weighted result. A change applies to all students immediately, so only change
+    them when the grading scheme itself changes. The weights must add up to exactly 100.
+</div>
+<form method="post" data-single-submit novalidate>
+    {{ csrf_input() }}
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th scope="col">Component</th><th scope="col">Code</th>
+                <th scope="col">Maximum marks</th><th scope="col">Weight (%)</th></tr></thead>
+            <tbody>
+            {% for item in config %}
+            {% set max_key = 'max_' ~ item.assessment_id %}{% set weight_key = 'weight_' ~ item.assessment_id %}
+            <tr>
+                <td>{{ item.name }}</td><td>{{ item.code }}</td>
+                <td><input type="number" class="form-control" id="{{ max_key }}" name="{{ max_key }}" step="0.01" min="0.01"
+                           aria-label="Maximum marks for {{ item.code }}"
+                           value="{{ typed[max_key] if max_key in typed else item.max|marks }}"></td>
+                <td><input type="number" class="form-control" id="{{ weight_key }}" name="{{ weight_key }}" step="0.01" min="0.01" max="100"
+                           aria-label="Weight for {{ item.code }}"
+                           value="{{ typed[weight_key] if weight_key in typed else item.weight|marks }}"></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary">Save settings</button>
+</form>
+{% endblock %}

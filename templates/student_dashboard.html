@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import grade, status, results_table with context %}
+{% block title %}My results - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h1 class="h3 mb-0">{{ profile.full_name }}</h1>
+        <p class="text-muted mb-0">{{ profile.registration_number }}
+            {% if profile.department %}&middot; {{ profile.department }}{% endif %}
+            {% if profile.semester %}&middot; Semester {{ profile.semester }}{% endif %}
+            {% if profile.academic_year %}&middot; {{ profile.academic_year }}{% endif %}</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{{ url_for('student.marksheet') }}">Printable marksheet</a>
+</div>
+
+<h2 class="h5 mt-4">Subject results</h2>
+{{ results_table(subject_results, config) }}
+
+<h2 class="h5 mt-4">Examination results</h2>
+{% for exam in exam_results %}
+<div class="card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+        <strong>{{ exam.exam_name }}</strong>
+        <span>{{ exam.academic_year }} &middot; Semester {{ exam.semester }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+            <thead><tr><th scope="col">Subject</th><th scope="col" class="text-end">Marks</th>
+                <th scope="col" class="text-end">Percent</th><th scope="col">Grade</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+            {% for mark in exam.marks %}
+            <tr><td>{{ mark.subject_code }} - {{ mark.subject_name }}</td>
+                <td class="text-end">{{ mark.marks_obtained|marks }} / {{ mark.maximum_marks|marks }}</td>
+                <td class="text-end">{{ mark.percentage|marks }}%</td>
+                <td>{{ grade(mark.grade) }}</td><td>{{ status(mark.pass_status) }}</td></tr>
+            {% endfor %}
+            </tbody>
+            <tfoot><tr class="table-light">
+                <th scope="row">Overall</th>
+                <td class="text-end">{{ exam.result.total_obtained|marks }} / {{ exam.result.total_maximum|marks }}</td>
+                <td class="text-end">{{ exam.result.overall_percentage|marks }}%</td>
+                <td></td><td>{{ status(exam.result.status) }}</td></tr></tfoot>
+        </table>
+    </div>
+</div>
+{% else %}
+<p class="text-muted">No examination results recorded yet.</p>
+{% endfor %}
+{% endblock %}

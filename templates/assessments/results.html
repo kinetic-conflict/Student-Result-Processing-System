@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager, results_table, subject_options with context %}
+{% block title %}Weighted results - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Weighted results</h1>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="search">Student</label>
+        <input class="form-control" id="search" name="search" value="{{ filters.search }}"
+               placeholder="Registration number or name">
+    </div>
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="subject_id">Subject</label>
+        <select class="form-select" id="subject_id" name="subject_id">
+            {{ subject_options(subjects, filters.subject_id|string if filters.subject_id else '') }}
+        </select>
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end">
+        <button class="btn btn-secondary w-100" type="submit">Search</button>
+    </div>
+</form>
+{{ results_table(listing.rows, config, show_student=True) }}
+{{ pager(listing.page) }}
+{% endblock %}

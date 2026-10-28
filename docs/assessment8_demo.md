@@ -1,3 +1,7 @@
+> **Note:** every page now requires sign-in. Create an administrator with `flask --app app create-admin`, sign in at
+> `/login`, and note that some screens described below have moved (see the menu). Code excerpts show the original
+> version of the project.
+
 # Assessment 8 Demonstration Guide
 ## Front-End Design and Basic Database Connectivity
 

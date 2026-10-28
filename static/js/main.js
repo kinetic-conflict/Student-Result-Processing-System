@@ -22,6 +22,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Ask before any action that carries a data-confirm message
+    document.querySelectorAll('[data-confirm]').forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            if (!confirm(button.dataset.confirm)) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    // Stop a second click from submitting a form twice
+    document.querySelectorAll('form[data-single-submit]').forEach(function(form) {
+        form.addEventListener('submit', function() {
+            form.querySelectorAll('button[type="submit"]').forEach(function(button) {
+                setTimeout(function() { button.disabled = true; }, 0);
+            });
+        });
+    });
+
+    // Light/dark switch; theme.js applied the saved choice before the page painted
+    document.querySelectorAll('[data-theme-toggle]').forEach(function(button) {
+        const root = document.documentElement;
+        const sync = function() {
+            button.setAttribute('aria-pressed', root.getAttribute('data-bs-theme') === 'dark');
+        };
+        sync();
+        button.addEventListener('click', function() {
+            const next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-bs-theme', next);
+            try { localStorage.setItem('srps-theme', next); } catch (e) { /* storage blocked: lasts until reload */ }
+            sync();
+        });
+    });
+
+    // Print buttons (inline handlers are blocked by the content security policy)
+    document.querySelectorAll('[data-print]').forEach(function(button) {
+        button.addEventListener('click', function() { window.print(); });
+    });
+
     // Form validation helper
     const forms = document.querySelectorAll('form[data-validate]');
     forms.forEach(function(form) {

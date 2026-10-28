@@ -5,6 +5,8 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from decimal import Decimal
+
 from services.result_service import (
     calculate_grade, 
     calculate_pass_status, 
@@ -13,6 +15,18 @@ from services.result_service import (
     calculate_student_result_with_assessments,
     calculate_weighted_score
 )
+
+# The stock assessment set, as migration_add_assessments.sql inserts it. Production code
+# reads these from the assessments table; tests pass them in.
+STOCK = [
+    {'code': 'CAT1', 'max': 50, 'weight': 15},
+    {'code': 'CAT2', 'max': 50, 'weight': 15},
+    {'code': 'CAT3', 'max': 50, 'weight': 15},
+    {'code': 'ASSIGN', 'max': 50, 'weight': 10},
+    {'code': 'PROJECT', 'max': 100, 'weight': 20},
+    {'code': 'ENDSEM', 'max': 100, 'weight': 25},
+]
+
 
 class TestResultService(unittest.TestCase):
     """Test result calculation logic."""
@@ -96,7 +110,7 @@ class TestResultService(unittest.TestCase):
             'ENDSEM': 78     # 78/100 = 78%, weighted: 19.5
         }
         # Total weighted: 12.6 + 11.4 + 13.5 + 8.0 + 17.0 + 19.5 = 82.0
-        result = calculate_student_result_with_assessments(assessment_data)
+        result = calculate_student_result_with_assessments(assessment_data, STOCK)
         
         self.assertEqual(result['total_weighted_score'], 82.0)
         self.assertEqual(result['grade'], 'A')  # 82% is A grade
@@ -110,7 +124,7 @@ class TestResultService(unittest.TestCase):
             'CAT2': 38,
             # Missing other assessments
         }
-        result = calculate_student_result_with_assessments(assessment_data)
+        result = calculate_student_result_with_assessments(assessment_data, STOCK)
         
         self.assertEqual(result['status'], 'Incomplete')
         self.assertEqual(result['grade'], 'N/A')
@@ -125,7 +139,7 @@ class TestResultService(unittest.TestCase):
             'PROJECT': 95,   # 95/100 = 95%
             'ENDSEM': 92     # 92/100 = 92%
         }
-        result = calculate_student_result_with_assessments(assessment_data)
+        result = calculate_student_result_with_assessments(assessment_data, STOCK)
         
         self.assertGreaterEqual(result['total_weighted_score'], 90)
         self.assertEqual(result['grade'], 'S')
@@ -152,6 +166,71 @@ class TestResultService(unittest.TestCase):
         self.assertEqual(processed[2]['percentage'], 35.0)
         self.assertEqual(processed[2]['grade'], 'F')
         self.assertEqual(processed[2]['pass_status'], 'Fail')
+
+class TestAssessmentCalculation(unittest.TestCase):
+    """Behaviour the first version got wrong or never exercised."""
+
+    FULL = {'CAT1': 42, 'CAT2': 38, 'CAT3': 45, 'ASSIGN': 40, 'PROJECT': 85, 'ENDSEM': 78}
+
+    def test_database_decimals_do_not_crash_the_calculation(self):
+        marks = {code: Decimal(str(value)) for code, value in self.FULL.items()}
+        result = calculate_student_result_with_assessments(marks, STOCK)
+        self.assertEqual(result['total_weighted_score'], 82.0)
+        self.assertEqual(result['grade'], 'A')
+
+    def test_weights_and_maximums_come_from_the_configuration_passed_in(self):
+        two_part = [{'code': 'MID', 'max': 20, 'weight': 40}, {'code': 'END', 'max': 80, 'weight': 60}]
+        result = calculate_student_result_with_assessments({'MID': 10, 'END': 60}, two_part)
+        # 10/20 * 40 = 20.0 and 60/80 * 60 = 45.0
+        self.assertEqual(result['total_weighted_score'], 65.0)
+        self.assertEqual(result['grade'], 'C')
+        self.assertEqual([b['code'] for b in result['assessment_breakdown']], ['MID', 'END'])
+
+    def test_a_missing_component_makes_the_result_incomplete_without_a_total(self):
+        marks = dict(self.FULL)
+        del marks['PROJECT']
+        result = calculate_student_result_with_assessments(marks, STOCK)
+        self.assertEqual(result['status'], 'Incomplete')
+        self.assertEqual(result['grade'], 'N/A')
+        self.assertIsNone(result['total_weighted_score'])
+        project = [b for b in result['assessment_breakdown'] if b['code'] == 'PROJECT'][0]
+        self.assertIsNone(project['marks_obtained'])
+        self.assertIsNone(project['weighted_score'])
+        self.assertEqual(len(result['assessment_breakdown']), 6)
+
+    def test_an_explicit_none_is_the_same_as_missing(self):
+        marks = dict(self.FULL, ENDSEM=None)
+        self.assertEqual(calculate_student_result_with_assessments(marks, STOCK)['status'], 'Incomplete')
+
+    def test_marks_above_the_maximum_or_below_zero_never_produce_a_grade(self):
+        for bad in (51, -1):
+            marks = dict(self.FULL, CAT1=bad)
+            result = calculate_student_result_with_assessments(marks, STOCK)
+            self.assertEqual(result['status'], 'Incomplete', bad)
+
+    def test_halves_round_up_consistently(self):
+        # 0.15 / 50 * 15 = 0.045 exactly; binary floats would round this down
+        self.assertEqual(calculate_weighted_score(Decimal('0.15'), 50, 15), 0.05)
+        self.assertEqual(calculate_weighted_score(Decimal('0.25'), 50, 15), 0.08)
+
+    def test_the_grade_follows_the_rounded_percentage_that_is_shown(self):
+        record = {'marks_obtained': Decimal('179.99'), 'maximum_marks': Decimal('200')}
+        processed = process_marks_with_result([record])[0]
+        self.assertEqual(processed['percentage'], 90.0)    # 89.995 rounds half up
+        self.assertEqual(processed['grade'], 'S')
+        self.assertEqual(processed['pass_status'], 'Pass')
+
+    def test_legacy_totals_accept_decimals(self):
+        marks = [{'marks_obtained': Decimal('85.50'), 'maximum_marks': Decimal('100')},
+                 {'marks_obtained': Decimal('40.00'), 'maximum_marks': Decimal('100')}]
+        result = calculate_student_result(marks)
+        self.assertEqual(result['total_obtained'], 125.5)
+        self.assertEqual(result['overall_percentage'], 62.75)
+        self.assertEqual(result['status'], 'Pass')
+
+    def test_legacy_status_is_incomplete_without_marks(self):
+        self.assertEqual(calculate_student_result([])['status'], 'Incomplete')
+
 
 if __name__ == '__main__':
     # Run tests

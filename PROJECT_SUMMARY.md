@@ -1,3 +1,6 @@
+> **Historical document.** Written for an earlier version of the project, before sign-in, roles and the
+> migration runner existed. Set-up steps and feature lists here may be out of date. See `README.md` for the current ones.
+
 # Student Result Processing System - Project Summary
 
 ## Implementation Status: COMPLETE

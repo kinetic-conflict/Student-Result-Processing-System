@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import grade, status with context %}
+{% block title %}{{ subject.subject_code }} marks - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h1 class="h3 mb-0">{{ subject.subject_code }} - {{ subject.subject_name }}</h1>
+        <p class="text-muted mb-0">Semester {{ subject.semester }} &middot; {{ rows|length }} student(s)</p>
+    </div>
+    <a class="btn btn-outline-primary"
+       href="{{ url_for('assessments.results', subject_id=subject.subject_id) }}">View results</a>
+</div>
+<p class="text-muted small">Leave a box empty to keep the mark as it is. Totals below show what is saved.</p>
+
+{% if rows %}
+<form method="post" data-single-submit>
+    {{ csrf_input() }}
+    <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle grid-table">
+            <thead>
+                <tr>
+                    <th scope="col">Student</th>
+                    {% for item in config %}
+                    <th scope="col" class="text-end">{{ item.code }}<br>
+                        <small class="text-muted">/{{ item.max|marks }} &middot; {{ item.weight|marks }}%</small></th>
+                    {% endfor %}
+                    <th scope="col" class="text-end">Total</th><th scope="col">Grade</th><th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <th scope="row" class="fw-normal text-nowrap">{{ row.student.registration_number }}<br>
+                    <small>{{ row.student.full_name }}</small></th>
+                {% for item in config %}
+                {% set field = 'm_' ~ row.student.student_id ~ '_' ~ item.code %}
+                <td><input type="number" class="form-control form-control-sm text-end" step="0.01" min="0"
+                           max="{{ item.max|marks }}" name="{{ field }}"
+                           aria-label="{{ item.code }} for {{ row.student.registration_number }}"
+                           value="{{ typed[field] if field in typed else (row.marks.get(item.code)|marks if row.marks.get(item.code) is not none else '') }}"></td>
+                {% endfor %}
+                <td class="text-end"><strong>{{ row.result.total_weighted_score|marks }}</strong></td>
+                <td>{{ grade(row.result.grade) }}</td>
+                <td>{{ status(row.result.status) }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary">Save all marks</button>
+</form>
+{% else %}
+<div class="alert alert-info">No students are in this subject's semester yet.</div>
+{% endif %}
+{% endblock %}

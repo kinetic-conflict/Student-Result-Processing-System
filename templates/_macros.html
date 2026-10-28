@@ -1,0 +1,134 @@
+{% macro grade(value) -%}
+<span class="badge grade-{{ value|replace('/', '') }}">{{ value }}</span>
+{%- endmacro %}
+
+{% macro status(value) -%}
+<span class="badge pass-{{ value }}">{{ value }}</span>
+{%- endmacro %}
+
+{% macro pager(page) %}
+{% if page.pages > 1 %}
+<nav aria-label="Pages">
+    <ul class="pagination pagination-sm">
+        <li class="page-item{% if not page.has_prev %} disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page.page - 1) }}">Previous</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">Page {{ page.page }} of {{ page.pages }}</span></li>
+        <li class="page-item{% if not page.has_next %} disabled{% endif %}">
+            <a class="page-link" href="{{ page_url(page.page + 1) }}">Next</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{# One row per (student, subject): component marks, weighted total, grade, status. #}
+{% macro results_table(rows, config, show_student=False) %}
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                {% if show_student %}<th scope="col">Student</th>{% endif %}
+                <th scope="col">Subject</th>
+                {% for item in config %}
+                <th scope="col" class="text-end">{{ item.code }}<br>
+                    <small class="text-muted">/{{ item.max|marks }} &middot; {{ item.weight|marks }}%</small></th>
+                {% endfor %}
+                <th scope="col" class="text-end">Total</th>
+                <th scope="col">Grade</th>
+                <th scope="col">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% if show_student %}
+                <td>{{ row.registration_number }}<br><small>{{ row.full_name }}</small></td>
+                {% endif %}
+                <td>{{ row.subject_code }}<br><small>{{ row.subject_name }}</small></td>
+                {% for item in config %}
+                <td class="text-end">{{ row.marks.get(item.code)|marks }}</td>
+                {% endfor %}
+                <td class="text-end"><strong>{{ row.result.total_weighted_score|marks }}</strong></td>
+                <td>{{ grade(row.result.grade) }}</td>
+                <td>{{ status(row.result.status) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ config|length + (4 if show_student else 3) }}" class="text-center text-muted py-4">
+                No results recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+{% macro student_options(students, selected) %}
+<option value="">Select student</option>
+{% for student in students %}
+<option value="{{ student.student_id }}"{% if selected == student.student_id|string %} selected{% endif %}>
+    {{ student.registration_number }} - {{ student.full_name }}</option>
+{% endfor %}
+{% endmacro %}
+
+{% macro subject_options(subjects, selected) %}
+<option value="">Select subject</option>
+{% for subject in subjects %}
+<option value="{{ subject.subject_id }}"{% if selected == subject.subject_id|string %} selected{% endif %}>
+    {{ subject.subject_code }} - {{ subject.subject_name }}</option>
+{% endfor %}
+{% endmacro %}
+
+{# A labelled text/number/date input that keeps what the user typed. #}
+{% macro field(name, label, value='', type='text', required=False, min=None, max=None, step=None,
+               maxlength=None, placeholder=None, disabled=False, help=None) %}
+<div class="mb-3">
+    <label for="{{ name }}" class="form-label">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+    <input type="{{ type }}" class="form-control" id="{{ name }}" {% if not disabled %}name="{{ name }}"{% endif %}
+           value="{{ '' if value is none else value }}"
+           {%- if required %} required{% endif %}
+           {%- if min is not none %} min="{{ min }}"{% endif %}
+           {%- if max is not none %} max="{{ max }}"{% endif %}
+           {%- if step %} step="{{ step }}"{% endif %}
+           {%- if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+           {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+           {%- if disabled %} disabled{% endif %}
+           {%- if help %} aria-describedby="{{ name }}-help"{% endif %}>
+    {% if help %}<div id="{{ name }}-help" class="form-text">{{ help }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{# A labelled select. `options` is a list of (value, label) pairs. #}
+{% macro choice(name, label, options, selected='', required=False, blank='Select') %}
+<div class="mb-3">
+    <label for="{{ name }}" class="form-label">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+    <select class="form-select" id="{{ name }}" name="{{ name }}"{% if required %} required{% endif %}>
+        <option value="">{{ blank }}</option>
+        {% for value, text in options %}
+        <option value="{{ value }}"{% if selected|string == value|string %} selected{% endif %}>{{ text }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endmacro %}
+
+{% macro search_form(search, placeholder, extra='') %}
+<form method="get" class="row g-2 mb-3" role="search">
+    <div class="col-12 col-md-8">
+        <label class="visually-hidden" for="search">Search</label>
+        <input class="form-control" id="search" name="search" value="{{ search }}" placeholder="{{ placeholder }}">
+    </div>
+    <div class="col col-md-2"><button class="btn btn-secondary w-100" type="submit">Search</button></div>
+    {% if search %}<div class="col col-md-2"><a class="btn btn-outline-secondary w-100" href="{{ request.path }}">Clear</a></div>{% endif %}
+</form>
+{% endmacro %}
+
+{% macro form_card(title, back) %}
+<h1 class="h3 mb-3">{{ title }}</h1>
+<div class="row"><div class="col-lg-8"><div class="card"><div class="card-body">
+    <form method="post" data-single-submit novalidate>
+        {{ csrf_input() }}
+        {{ caller() }}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{{ back }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div></div></div></div>
+{% endmacro %}

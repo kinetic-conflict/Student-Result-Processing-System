@@ -1,201 +1,232 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from db import execute_query, execute_update
+from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+
+import templating
+from db import execute_query
+from routes.helpers import client_ip, optional_id
+from services import access, assessment_config, marks_service, result_queries
+from services.marks_service import AccessDenied
+from services.pagination import paginate
 from services.result_service import calculate_student_result_with_assessments
+from services.validation import ValidationError, parse_decimal, parse_int
 
-assessments_bp = Blueprint('assessments', __name__)
+assessments_bp = Blueprint('assessments', __name__, url_prefix='/assessments')
 
-@assessments_bp.route('/assessments')
-def list_assessment_marks():
-    """Display all assessment marks with filtering."""
-    student_id = request.args.get('student_id')
-    subject_id = request.args.get('subject_id')
-    
-    query = """
-        SELECT am.*, s.registration_number, s.full_name, 
-               sub.subject_code, sub.subject_name,
-               a.assessment_code, a.assessment_name, a.maximum_marks, a.weight_percentage
-        FROM assessment_marks am
-        JOIN students s ON am.student_id = s.student_id
-        JOIN subjects sub ON am.subject_id = sub.subject_id
-        JOIN assessments a ON am.assessment_id = a.assessment_id
-        WHERE 1=1
-    """
-    params = []
-    
-    if student_id:
-        query += " AND am.student_id = %s"
-        params.append(student_id)
-    
-    if subject_id:
-        query += " AND am.subject_id = %s"
-        params.append(subject_id)
-    
-    query += " ORDER BY s.registration_number, sub.subject_code, a.assessment_id"
-    
-    assessment_marks = execute_query(query, tuple(params))
-    
-    # Get dropdown options
-    students = execute_query("SELECT student_id, registration_number, full_name FROM students ORDER BY registration_number")
-    subjects = execute_query("SELECT subject_id, subject_code, subject_name FROM subjects ORDER BY subject_code")
-    
-    return render_template('assessments.html', assessment_marks=assessment_marks, students=students, subjects=subjects,
-                         filters={'student_id': student_id, 'subject_id': subject_id})
+MARK_LIST_SELECT = """
+    SELECT am.assessment_mark_id, am.marks_obtained,
+           s.registration_number, s.full_name, sub.subject_code, sub.subject_name,
+           a.assessment_code, a.assessment_name, a.maximum_marks, a.weight_percentage
+    FROM assessment_marks am
+    JOIN students s ON am.student_id = s.student_id
+    JOIN subjects sub ON am.subject_id = sub.subject_id
+    JOIN assessments a ON am.assessment_id = a.assessment_id
+    WHERE 1 = 1
+"""
 
-@assessments_bp.route('/assessments/enter', methods=['GET', 'POST'])
-def enter_assessment_marks():
-    """Enter assessment marks for a student-subject combination."""
-    if request.method == 'POST':
-        student_id = request.form['student_id']
-        subject_id = request.form['subject_id']
-        
-        # Get all 6 assessment marks
-        assessment_marks = {}
-        for code in ['CAT1', 'CAT2', 'CAT3', 'ASSIGN', 'PROJECT', 'ENDSEM']:
-            marks = request.form.get(f'marks_{code}')
-            if marks and marks.strip():
-                assessment_marks[code] = float(marks)
-            else:
-                assessment_marks[code] = None
-        
-        try:
-            # Insert or update each assessment mark
-            assessments = execute_query("SELECT assessment_id, assessment_code FROM assessments")
-            
-            for assessment in assessments:
-                code = assessment['assessment_code']
-                assessment_id = assessment['assessment_id']
-                marks = assessment_marks.get(code)
-                
-                if marks is not None:
-                    # Check if record exists
-                    existing = execute_query(
-                        "SELECT assessment_mark_id FROM assessment_marks WHERE student_id = %s AND subject_id = %s AND assessment_id = %s",
-                        (student_id, subject_id, assessment_id)
-                    )
-                    
-                    if existing:
-                        # Update existing record
-                        execute_update(
-                            "UPDATE assessment_marks SET marks_obtained = %s WHERE student_id = %s AND subject_id = %s AND assessment_id = %s",
-                            (marks, student_id, subject_id, assessment_id)
-                        )
-                    else:
-                        # Insert new record
-                        execute_update(
-                            "INSERT INTO assessment_marks (student_id, subject_id, assessment_id, marks_obtained) VALUES (%s, %s, %s, %s)",
-                            (student_id, subject_id, assessment_id, marks)
-                        )
-            
-            flash('Assessment marks saved successfully!', 'success')
-            return redirect(url_for('assessments.list_assessment_marks'))
-        except Exception as e:
-            flash(f'Error saving assessment marks: {e}', 'error')
-    
-    # Get dropdown options
-    students = execute_query("SELECT student_id, registration_number, full_name FROM students ORDER BY registration_number")
-    subjects = execute_query("SELECT subject_id, subject_code, subject_name FROM subjects ORDER BY subject_code")
-    assessments = execute_query("SELECT * FROM assessments ORDER BY assessment_id")
-    
-    return render_template('assessments.html', action='enter', students=students, subjects=subjects, assessments=assessments)
 
-@assessments_bp.route('/assessments/calculate', methods=['GET', 'POST'])
-def calculate_result():
-    """Calculate and display result for a student-subject combination."""
-    if request.method == 'POST':
-        student_id = request.form['student_id']
-        subject_id = request.form['subject_id']
-        
-        # Get all assessment marks for this student-subject
-        query = """
-            SELECT am.marks_obtained, a.assessment_code, a.maximum_marks, a.weight_percentage
-            FROM assessment_marks am
-            JOIN assessments a ON am.assessment_id = a.assessment_id
-            WHERE am.student_id = %s AND am.subject_id = %s
-            ORDER BY a.assessment_id
-        """
-        marks_data = execute_query(query, (student_id, subject_id))
-        
-        # Convert to dictionary format for calculation
-        assessment_dict = {row['assessment_code']: row['marks_obtained'] for row in marks_data}
-        
-        # Calculate result
-        result = calculate_student_result_with_assessments(assessment_dict)
-        
-        # Get student and subject info
-        student = execute_query("SELECT * FROM students WHERE student_id = %s", (student_id,))
-        subject = execute_query("SELECT * FROM subjects WHERE subject_id = %s", (subject_id,))
-        
-        return render_template('assessments.html', action='calculate', result=result,
-                             student=student[0] if student else None,
-                             subject=subject[0] if subject else None,
-                             student_id=student_id, subject_id=subject_id)
-    
-    # Get dropdown options
-    students = execute_query("SELECT student_id, registration_number, full_name FROM students ORDER BY registration_number")
-    subjects = execute_query("SELECT subject_id, subject_code, subject_name FROM subjects ORDER BY subject_code")
-    
-    return render_template('assessments.html', action='calculate', students=students, subjects=subjects)
-
-@assessments_bp.route('/assessments/<int:assessment_mark_id>/edit', methods=['GET', 'POST'])
-def edit_assessment_mark(assessment_mark_id):
-    """Edit an existing assessment mark."""
-    if request.method == 'POST':
-        marks_obtained = float(request.form['marks_obtained'])
-        
-        if marks_obtained < 0:
-            flash('Marks cannot be negative!', 'error')
-            return redirect(url_for('assessments.edit_assessment_mark', assessment_mark_id=assessment_mark_id))
-        
-        try:
-            # Get maximum marks for this assessment
-            query = """
-                SELECT maximum_marks 
-                FROM assessment_marks am
-                JOIN assessments a ON am.assessment_id = a.assessment_id
-                WHERE am.assessment_mark_id = %s
-            """
-            result = execute_query(query, (assessment_mark_id,))
-            
-            if result:
-                max_marks = result[0]['maximum_marks']
-                if marks_obtained > max_marks:
-                    flash(f'Marks cannot exceed maximum marks ({max_marks})!', 'error')
-                    return redirect(url_for('assessments.edit_assessment_mark', assessment_mark_id=assessment_mark_id))
-            
-            execute_update(
-                "UPDATE assessment_marks SET marks_obtained = %s WHERE assessment_mark_id = %s",
-                (marks_obtained, assessment_mark_id)
-            )
-            flash('Assessment mark updated successfully!', 'success')
-            return redirect(url_for('assessments.list_assessment_marks'))
-        except Exception as e:
-            flash(f'Error updating assessment mark: {e}', 'error')
-    
-    query = """
-        SELECT am.*, s.registration_number, s.full_name, 
-               sub.subject_code, sub.subject_name,
-               a.assessment_code, a.assessment_name, a.maximum_marks, a.weight_percentage
-        FROM assessment_marks am
-        JOIN students s ON am.student_id = s.student_id
-        JOIN subjects sub ON am.subject_id = sub.subject_id
-        JOIN assessments a ON am.assessment_id = a.assessment_id
-        WHERE am.assessment_mark_id = %s
-    """
-    mark = execute_query(query, (assessment_mark_id,))
-    
-    if mark:
-        return render_template('assessments.html', action='edit', mark=mark[0])
-    else:
-        flash('Assessment mark not found!', 'error')
-        return redirect(url_for('assessments.list_assessment_marks'))
-
-@assessments_bp.route('/assessments/<int:assessment_mark_id>/delete', methods=['POST'])
-def delete_assessment_mark(assessment_mark_id):
-    """Delete an assessment mark."""
+def _id_or_none(raw):
     try:
-        execute_update("DELETE FROM assessment_marks WHERE assessment_mark_id = %s", (assessment_mark_id,))
-        flash('Assessment mark deleted successfully!', 'success')
-    except Exception as e:
-        flash(f'Error deleting assessment mark: {e}', 'error')
-    
+        return parse_int('id', raw, minimum=1, required=False)
+    except ValidationError:
+        return None
+
+
+def _existing_marks(student_id, subject_id):
+    rows = execute_query(
+        'SELECT a.assessment_code AS code, am.marks_obtained AS marks FROM assessment_marks am '
+        'JOIN assessments a ON a.assessment_id = am.assessment_id '
+        'WHERE am.student_id = %s AND am.subject_id = %s', (student_id, subject_id))
+    return {row['code']: row['marks'] for row in rows}
+
+
+def _parse_mark(label, raw):
+    """Syntax and decimal places only. The allowed range is checked in one place: marks_service."""
+    return parse_decimal(label, raw, places=2, required=False)
+
+
+@assessments_bp.route('')
+def list_assessment_marks():
+    """Every recorded component mark the user may see, one row per mark."""
+    where, params = '', []
+    for name, column in (('student_id', 'am.student_id'), ('subject_id', 'am.subject_id')):
+        value = optional_id(name)
+        if value:
+            where += f' AND {column} = %s'
+            params.append(value)
+    fragment, scope_params = access.scope_filter(g.user)
+    where += fragment
+    params += scope_params
+
+    total = execute_query('SELECT COUNT(*) AS n FROM assessment_marks am '
+                          'JOIN students s ON am.student_id = s.student_id '
+                          'JOIN subjects sub ON am.subject_id = sub.subject_id '
+                          f'WHERE 1 = 1{where}', tuple(params))[0]['n']
+    page = paginate(total, request.args.get('page'))
+    rows = execute_query(
+        MARK_LIST_SELECT + where + ' ORDER BY s.registration_number, sub.subject_code, a.assessment_id'
+        ' LIMIT %s OFFSET %s', (*params, page.per_page, page.offset))
+    return render_template('assessments/list.html', rows=rows, page=page,
+                           students=access.students_for(g.user), subjects=access.subjects_for(g.user),
+                           filters={'student_id': optional_id('student_id'),
+                                    'subject_id': optional_id('subject_id')})
+
+
+@assessments_bp.route('/results')
+def results():
+    """Weighted result per student and subject, with each component mark."""
+    subject_id = optional_id('subject_id')
+    search = request.args.get('search', '').strip()
+    listing = result_queries.weighted_results(
+        g.user, subject_id=subject_id, search=search or None, raw_page=request.args.get('page'))
+    return render_template('assessments/results.html', listing=listing,
+                           config=assessment_config.load_config(),
+                           subjects=access.subjects_for(g.user),
+                           filters={'subject_id': subject_id, 'search': search})
+
+
+@assessments_bp.route('/enter', methods=['GET', 'POST'])
+def enter_assessment_marks():
+    """Enter or correct all component marks for one student in one subject."""
+    config = assessment_config.load_config()
+    form = request.form if request.method == 'POST' else request.args
+    entered = {item['code']: form.get(f"marks_{item['code']}", '') for item in config}
+    student_id, subject_id = form.get('student_id', ''), form.get('subject_id', '')
+
+    if request.method == 'POST':
+        try:
+            student_id = parse_int('Student', student_id, minimum=1)
+            subject_id = parse_int('Subject', subject_id, minimum=1)
+            marks = {item['code']: _parse_mark(item['code'], entered[item['code']]) for item in config}
+            changed = marks_service.save_marks(g.user, subject_id, {student_id: marks},
+                                               ip=client_ip())
+        except ValidationError as error:
+            flash(str(error), 'error')
+        except AccessDenied:
+            abort(403)
+        else:
+            flash(f'Saved {changed} mark(s).' if changed else 'No changes to save.', 'success')
+            return redirect(url_for('assessments.calculate_result',
+                                    student_id=student_id, subject_id=subject_id))
+    elif _id_or_none(student_id) and _id_or_none(subject_id) and access.can_write_marks(
+            g.user, _id_or_none(student_id), _id_or_none(subject_id)):
+        saved = _existing_marks(_id_or_none(student_id), _id_or_none(subject_id))
+        entered = {code: '' if code not in saved else templating.marks(saved[code]) for code in entered}
+    return render_template('assessments/enter.html', config=config, entered=entered,
+                           students=access.students_for(g.user), subjects=access.subjects_for(g.user),
+                           selected={'student_id': str(student_id), 'subject_id': str(subject_id)})
+
+
+@assessments_bp.route('/subjects/<int:subject_id>', methods=['GET', 'POST'])
+def subject_grid(subject_id):
+    """Mark-entry sheet: every student in the subject's cohort against every component."""
+    if not access.can_manage_subject(g.user, subject_id):
+        abort(403)
+    subject = execute_query('SELECT * FROM subjects WHERE subject_id = %s', (subject_id,))
+    if not subject:
+        abort(404)
+    config = assessment_config.load_config()
+    students = access.students_for_subject(g.user, subject_id)
+    typed = {}
+
+    if request.method == 'POST':
+        try:
+            entries = {}
+            for student in students:
+                row = entries[student['student_id']] = {}
+                for item in config:
+                    field = f"m_{student['student_id']}_{item['code']}"
+                    typed[field] = request.form.get(field, '')
+                    row[item['code']] = _parse_mark(
+                        f"{student['registration_number']} {item['code']}", typed[field])
+            changed = marks_service.save_marks(g.user, subject_id, entries, ip=client_ip())
+        except ValidationError as error:
+            flash(str(error), 'error')
+        except AccessDenied:
+            abort(403)
+        else:
+            flash(f'Saved {changed} mark(s).' if changed else 'No changes to save.', 'success')
+            return redirect(url_for('assessments.subject_grid', subject_id=subject_id))
+
+    saved = _cohort_marks(subject_id, [s['student_id'] for s in students])
+    calculation = [{'code': a['code'], 'max': a['max'], 'weight': a['weight']} for a in config]
+    rows = []
+    for student in students:
+        marks = saved.get(student['student_id'], {})
+        rows.append({'student': student, 'marks': marks,
+                     'result': calculate_student_result_with_assessments(marks, calculation)})
+    return render_template('assessments/grid.html', subject=subject[0], config=config, rows=rows,
+                           typed=typed)
+
+
+def _cohort_marks(subject_id, student_ids):
+    if not student_ids:
+        return {}
+    placeholders = ', '.join(['%s'] * len(student_ids))
+    saved = {}
+    for row in execute_query(
+            'SELECT am.student_id, a.assessment_code AS code, am.marks_obtained AS marks '
+            'FROM assessment_marks am JOIN assessments a ON a.assessment_id = am.assessment_id '
+            f'WHERE am.subject_id = %s AND am.student_id IN ({placeholders})',
+            (subject_id, *student_ids)):
+        saved.setdefault(row['student_id'], {})[row['code']] = row['marks']
+    return saved
+
+
+@assessments_bp.route('/calculate')
+def calculate_result():
+    """Show how one student's weighted result for one subject is made up."""
+    config = assessment_config.load_config()
+    student_id, subject_id = optional_id('student_id'), optional_id('subject_id')
+    if not (student_id and subject_id):
+        return render_template('assessments/calculate.html', result=None, config=config,
+                               students=access.students_for(g.user),
+                               subjects=access.subjects_for(g.user))
+    if not access.can_write_marks(g.user, student_id, subject_id):
+        abort(403)
+    student = execute_query('SELECT * FROM students WHERE student_id = %s', (student_id,))[0]
+    subject = execute_query('SELECT * FROM subjects WHERE subject_id = %s', (subject_id,))[0]
+    calculation = [{'code': a['code'], 'max': a['max'], 'weight': a['weight']} for a in config]
+    result = calculate_student_result_with_assessments(_existing_marks(student_id, subject_id), calculation)
+    return render_template('assessments/calculate.html', result=result, student=student, subject=subject,
+                           config=config, students=access.students_for(g.user),
+                           subjects=access.subjects_for(g.user))
+
+
+@assessments_bp.route('/<int:assessment_mark_id>/edit', methods=['GET', 'POST'])
+def edit_assessment_mark(assessment_mark_id):
+    """Correct a single recorded mark."""
+    try:
+        mark = marks_service.get_mark(g.user, assessment_mark_id)
+    except AccessDenied:
+        abort(403)
+    except LookupError:
+        abort(404)
+
+    typed = None
+    if request.method == 'POST':
+        typed = request.form.get('marks_obtained', '')
+        try:
+            value = parse_decimal(mark['code'], typed, places=2)
+            marks_service.change_mark(g.user, assessment_mark_id, value, ip=client_ip())
+        except ValidationError as error:
+            flash(str(error), 'error')
+        except AccessDenied:
+            abort(403)
+        except LookupError:
+            abort(404)
+        else:
+            flash('Assessment mark updated.', 'success')
+            return redirect(url_for('assessments.list_assessment_marks'))
+    return render_template('assessments/edit.html', mark=mark, typed=typed)
+
+
+@assessments_bp.route('/<int:assessment_mark_id>/delete', methods=['POST'])
+def delete_assessment_mark(assessment_mark_id):
+    """Remove one mark. Administrators only (see ENDPOINT_ROLES in app.py)."""
+    try:
+        marks_service.delete_mark(g.user, assessment_mark_id, ip=client_ip())
+    except AccessDenied:
+        abort(403)
+    except LookupError:
+        abort(404)
+    flash('Assessment mark deleted.', 'success')
     return redirect(url_for('assessments.list_assessment_marks'))

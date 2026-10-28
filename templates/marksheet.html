@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import results_table, status with context %}
+{% block title %}Marksheet - {{ profile.registration_number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
+    <h1 class="h3 mb-0">Marksheet</h1>
+    <button type="button" class="btn btn-primary" data-print>Print</button>
+</div>
+<div class="marksheet">
+    <h2 class="h4 text-center">Student Result Processing System</h2>
+    <p class="text-center text-muted">Statement of marks</p>
+    <dl class="row">
+        <dt class="col-4 col-md-2">Name</dt><dd class="col-8 col-md-4">{{ profile.full_name }}</dd>
+        <dt class="col-4 col-md-2">Registration</dt><dd class="col-8 col-md-4">{{ profile.registration_number }}</dd>
+        <dt class="col-4 col-md-2">Department</dt><dd class="col-8 col-md-4">{{ profile.department or '—' }}</dd>
+        <dt class="col-4 col-md-2">Semester</dt><dd class="col-8 col-md-4">{{ profile.semester or '—' }}</dd>
+    </dl>
+
+    <h3 class="h6">Subject results</h3>
+    {{ results_table(subject_results, config) }}
+
+    {% for exam in exam_results %}
+    <h3 class="h6 mt-3">{{ exam.exam_name }} ({{ exam.academic_year }})</h3>
+    <table class="table table-sm">
+        <thead><tr><th scope="col">Subject</th><th scope="col" class="text-end">Marks</th><th scope="col">Result</th></tr></thead>
+        <tbody>
+        {% for mark in exam.marks %}
+        <tr><td>{{ mark.subject_code }} - {{ mark.subject_name }}</td>
+            <td class="text-end">{{ mark.marks_obtained|marks }} / {{ mark.maximum_marks|marks }}</td>
+            <td>{{ mark.grade }} ({{ mark.pass_status }})</td></tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr><th scope="row">Overall</th>
+            <td class="text-end">{{ exam.result.total_obtained|marks }} / {{ exam.result.total_maximum|marks }}
+                ({{ exam.result.overall_percentage|marks }}%)</td>
+            <td>{{ exam.result.status }}</td></tr></tfoot>
+    </table>
+    {% endfor %}
+    <p class="small text-muted mt-4">Computer-generated statement. Grades follow the grading table in force for this system.</p>
+</div>
+{% endblock %}

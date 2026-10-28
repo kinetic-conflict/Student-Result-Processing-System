@@ -1,422 +1,238 @@
 # Student Result Processing System
 
-A full-stack web application for managing student academic results, built with Flask (Python) and MySQL 8.x. This system demonstrates real database connectivity, CRUD operations, result processing, and comprehensive reporting for DBMS academic projects.
+A Flask + MySQL web application for managing student academic results, with sign-in and three roles
+(administrator, faculty, student). Built as a DBMS course project and meant to run on one computer.
 
-## Features
+## What it does
 
-- **Student Management**: Add, view, edit, search, and delete student records with VIT-style registration numbers
-- **Subject Management**: Manage subjects with VIT-style course codes, names, credits, and semesters
-- **Examination Management**: Create and manage examinations
-- **Marks Entry**: Enter and manage student marks with validation (legacy system)
-- **Assessment System**: 6-component weighted assessment system:
-  - CAT1: 50 marks, 15% weight
-  - CAT2: 50 marks, 15% weight
-  - CAT3: 50 marks, 15% weight
-  - Assignment: 50 marks, 10% weight
-  - Project: 100 marks, 20% weight
-  - End Semester: 100 marks, 25% weight
-- **Result Processing**: Automatic calculation of weighted scores, percentages, grades (VIT style: S, A, B, C, D, E, F), and pass/fail status
-- **Result Search**: Search results by registration number or student name
-- **Comprehensive Reports**: 
-  - Individual student result reports
-  - Examination-wise reports
-  - Subject-wise performance reports
-  - Top performers
-  - Failed students
-  - Incomplete results
-- **Database-Backed**: All data stored in MySQL with proper constraints and referential integrity
+| Role | Can do |
+|------|--------|
+| **Administrator** | Manage students, subjects, examinations, faculty and their subject assignments. Create, edit, deactivate accounts and reset passwords. Enter or correct any mark. Change the assessment weights. Read the audit log and all reports. |
+| **Faculty** | See their own subjects. Enter and correct marks **only** for subjects assigned to them, for students in that subject's semester. See results for those subjects. |
+| **Student** | See **only their own** results, assessment by assessment, and print their own marksheet. |
 
-## Technology Stack
+Highlights: password hashing, server-side permission checks on every request, CSRF protection, login rate limiting,
+session expiry, an audit trail of changes, pagination and search on long lists, and tracked database migrations.
+The interface has a light and a dark theme: it follows the system setting, and the button in the top bar overrides it
+(the choice is remembered in the browser). Printed marksheets always use the light colours.
 
-- **Database**: MySQL Server 8.x
-- **Backend**: Python Flask
-- **Database Connector**: mysql-connector-python
-- **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
-- **Templating**: Jinja2
+### Result rules (as implemented)
 
-## Project Structure
+These come from the original project and its tests. Nothing was added.
+
+| Percentage | Grade | | Component | Max marks | Weight |
+|-----------:|:-----:|-|-----------|----------:|-------:|
+| 90 and above | S | | CAT1 | 50 | 15% |
+| 80 to 89.99 | A | | CAT2 | 50 | 15% |
+| 70 to 79.99 | B | | CAT3 | 50 | 15% |
+| 60 to 69.99 | C | | Assignment | 50 | 10% |
+| 50 to 59.99 | D | | Project | 100 | 20% |
+| 40 to 49.99 | E | | End Semester | 100 | 25% |
+| below 40 | F | | | | |
+
+- **Pass mark: 40%.**
+- A weighted result needs **every** component. If one is missing or out of range the result is **Incomplete**: no
+  total and no grade is shown.
+- Each figure is rounded half-up to two decimals, and the grade is taken from the rounded figure that is displayed.
+- Results are calculated when they are viewed, so they always match the marks currently stored.
+- The component maximums and weights live in the `assessments` table and can be changed by an administrator
+  (Administration, Assessment settings). The weights must total exactly 100.
+- **GPA / CGPA are not calculated.** No grade-point table exists in this project. Supply one if you want it.
+- The legacy per-examination marks (`marks` table) are still supported. A legacy result passes only if every subject
+  reaches 40%.
+
+## Technology
+
+Python 3 and Flask, MySQL 8.0.16 or newer (earlier versions do not enforce `CHECK` constraints),
+`mysql-connector-python`, Jinja2 templates, Bootstrap 5 (loaded from a CDN, so the pages need internet access).
+
+## Project layout
 
 ```
-DBMS_Project/
-├── app.py                      # Flask application entry point
-├── config.py                   # Configuration management
-├── db.py                       # Database connection and query functions
-├── requirements.txt            # Python dependencies
-├── .env.example               # Environment variables template
-├── .gitignore                 # Git ignore rules
-├── database/
-│   ├── schema.sql             # Database schema creation
-│   ├── seed.sql               # Sample data insertion
-│   ├── migration_add_assessments.sql  # Assessment system migration
-│   ├── seed_vit_students.sql  # VIT-style students and subjects
-│   ├── queries.sql            # Important SQL queries
-│   └── verification.sql       # Assessment verification queries
-├── routes/
-│   ├── __init__.py
-│   ├── students.py            # Student management routes
-│   ├── subjects.py            # Subject management routes
-│   ├── examinations.py        # Examination management routes
-│   ├── marks.py               # Marks entry routes (legacy)
-│   ├── assessments.py         # Assessment system routes (NEW)
-│   └── reports.py             # Report generation routes
-├── services/
-│   ├── __init__.py
-│   └── result_service.py      # Result calculation logic (updated)
-├── templates/
-│   ├── base.html              # Base template with navigation
-│   ├── dashboard.html         # Dashboard page
-│   ├── students.html          # Student management page
-│   ├── subjects.html          # Subject management page
-│   ├── examinations.html      # Examination management page
-│   ├── marks.html             # Marks entry page (legacy)
-│   ├── assessments.html       # Assessment system page (NEW)
-│   ├── results.html           # Result search page
-│   └── reports.html           # Reports page
-├── static/
-│   ├── css/
-│   │   └── style.css          # Custom styles (updated for S grade)
-│   └── js/
-│       └── main.js            # JavaScript functionality
-├── tests/
-│   └── test_app.py            # Automated tests (updated)
-└── docs/
-    ├── database_design.md     # Database design documentation (updated)
-    ├── assessment8_demo.md    # Assessment 8 demonstration guide
-    ├── assessment9_demo.md    # Assessment 9 demonstration guide
-    └── assessment10_demo.md   # Assessment 10 demonstration guide
+app.py                    create_app() and the run command; BLUEPRINTS = who may open what
+config.py                 reads and validates .env settings
+db.py                     database access (queries, transaction())
+security.py               sessions, CSRF, route guards, response headers
+cli.py                    flask commands: migrate, create-admin, backup
+routes/                   one module per screen group (students, assessments, users_admin, ...)
+services/                 business rules with no Flask in them (results, access, auth, audit, ...)
+templates/, static/       pages, styles, a little JavaScript
+database/                 schema.sql, seed*.sql, queries.sql, verification.sql, migrations/
+tests/                    pytest suite (needs a throwaway MySQL for the database tests)
+docs/                     database design, audit report, demonstration guides
 ```
 
-## Windows Setup Instructions
+## Set up (Windows, PowerShell)
 
-### Prerequisites
-
-1. **Python 3.8 or higher**
-   - Download from: https://www.python.org/downloads/
-   - During installation, check "Add Python to PATH"
-
-2. **MySQL Server 8.x**
-   - Download from: https://dev.mysql.com/downloads/mysql/
-   - Install MySQL Server and MySQL Workbench (recommended)
-   - Set a root password during installation (remember it!)
-
-3. **Git** (optional, for version control)
-   - Download from: https://git-scm.com/download/win
-
-### Step-by-Step Setup
-
-#### 1. Navigate to Project Directory
-
-Open PowerShell and navigate to the project folder:
+You need Python 3.8+ and MySQL Server 8.x. Replace paths and passwords with your own.
 
 ```powershell
 cd D:\ACADEMICS\1_VIT\DBMS_Project
-```
-
-#### 2. Create Python Virtual Environment
-
-```powershell
 python -m venv venv
-```
-
-#### 3. Activate Virtual Environment
-
-```powershell
 .\venv\Scripts\Activate
-```
-
-You should see `(venv)` in your command prompt indicating the virtual environment is active.
-
-#### 4. Install Python Dependencies
-
-```powershell
 pip install -r requirements.txt
-```
-
-This will install:
-- Flask
-- mysql-connector-python
-- python-dotenv
-- Werkzeug
-
-#### 5. Configure Environment Variables
-
-Create a `.env` file in the project root:
-
-```powershell
 Copy-Item .env.example .env
 ```
 
-Edit the `.env` file with your MySQL credentials:
-
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=localpass
-DB_NAME=student_result_db
-```
-
-Replace `your_mysql_password` with your actual MySQL root password.
-
-#### 6. Start MySQL Service
-
-If MySQL is not running, start it:
+Open `.env` in an editor and fill in the two required values. Never paste them into a chat or commit the file.
 
 ```powershell
-# Using MySQL as a Windows service
-net start MySQL80
-
-# Or if you have a different service name
-net start MySQL
+python -c "import secrets; print(secrets.token_hex(32))"     # put the output after SECRET_KEY=
 ```
 
-Alternatively, start MySQL from MySQL Workbench or the MySQL Notifier.
+`DB_PASSWORD=` takes your MySQL password. The application will not start without both. Other settings and their
+defaults are listed in `.env.example`.
 
-#### 7. Create Database and Tables
+On Linux or macOS the same steps work with `python3 -m venv venv`, `source venv/bin/activate` and `cp .env.example .env`.
 
-Open MySQL Workbench and connect to your MySQL server using your root password.
+### New installation
 
-Execute the SQL scripts in order:
-
-1. **schema.sql** - Creates the database and all tables
-   - Open `database/schema.sql` in MySQL Workbench
-   - Click the lightning bolt icon to execute
-   - This creates the `student_result_db` database and all tables
-
-2. **seed.sql** - Inserts sample demonstration data
-   - Open `database/seed.sql` in MySQL Workbench
-   - Click the lightning bolt icon to execute
-   - This populates the database with sample students, subjects, examinations, and marks
-
-3. **migration_add_assessments.sql** - Adds the assessment system
-   - Open `database/migration_add_assessments.sql` in MySQL Workbench
-   - Click the lightning bolt icon to execute
-   - This adds the 6-component assessment system and migrates existing data
-
-4. **seed_vit_students.sql** - Adds VIT-style students and subjects
-   - Open `database/seed_vit_students.sql` in MySQL Workbench
-   - Click the lightning bolt icon to execute
-   - This adds 25 VIT-style students and VIT course codes
-
-**Alternative: Command-Line Execution**
-
-If you prefer using the MySQL command line:
+PowerShell does not support the `<` redirect, so run the scripts from the MySQL prompt (or MySQL Workbench):
 
 ```powershell
-mysql -u root -p < database\schema.sql
-mysql -u root -p < database\seed.sql
+mysql -u root -p
 ```
-
-Enter your MySQL password when prompted.
-
-#### 8. Verify Database Setup
-
-In MySQL Workbench, run:
-
 ```sql
-USE student_result_db;
-SELECT COUNT(*) AS total_students FROM students;
-SELECT COUNT(*) AS total_subjects FROM subjects;
-SELECT COUNT(*) AS total_examinations FROM examinations;
-SELECT COUNT(*) AS total_marks FROM marks;
+source database/schema.sql;
+source database/migration_add_assessments.sql;
+source database/seed.sql;                 -- optional: synthetic sample data
+source database/seed_vit_students.sql;    -- optional: more synthetic sample data
+exit
 ```
 
-You should see:
-- 33 students (8 original + 25 VIT-style)
-- 28 subjects (8 original + 20 VIT-style)
-- 6 examinations (4 original + 2 new)
-- 33 marks records (legacy system)
-- 6 assessment components
-- 0 assessment marks (until you enter them)
-
-#### 9. Start the Flask Application
+Then, back in PowerShell with the virtual environment active:
 
 ```powershell
+flask --app app migrate            # adds accounts, faculty and audit tables
+flask --app app create-admin       # asks for a username and a password (hidden)
 python app.py
 ```
 
-You should see output like:
+Open <http://127.0.0.1:5000> and sign in. The seed files create **no** accounts and no passwords exist in them.
 
+### Existing installation (data you want to keep)
+
+1. **Back up first.** MySQL cannot undo schema changes.
+   ```powershell
+   flask --app app backup
+   ```
+   This writes a private, timestamped `.sql` file to `backups\` and checks it is not empty. It needs `mysqldump` on
+   your PATH, or pass `--mysqldump "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe"`. The password is
+   passed through the environment, not on the command line.
+2. Add `SECRET_KEY` to your existing `.env` (see above).
+3. Apply the new migrations. Do **not** run `schema.sql` or the seed files again.
+   ```powershell
+   flask --app app migrate
+   ```
+   It lists what it will do and asks whether you made a backup. Existing rows, hashes and roles are left as they are.
+4. Create your first administrator with `flask --app app create-admin`.
+5. Optional: restore the backup into a *different* database to prove it works, for example
+   `mysql -u root -p -e "CREATE DATABASE restore_check"` then `source backups/<file>.sql` after `USE restore_check;`.
+
+The old `seed.sql` inserted an `admin` user whose password hash was invalid, so it could not be used to sign in.
+If your database has that row, the command above still works with another username; the old row can be deactivated
+from the Accounts page.
+
+## Day-to-day use
+
+**Administrator**
+1. *Administration, Faculty*: add faculty members. Open *Subjects* on a row to assign the subjects they teach.
+2. *Administration, Accounts*: *New account* creates one login (admin, faculty or student) and shows a **temporary
+   password once**. *Create all student accounts* does it for everyone who has none, with one password each, on a
+   page you can print. Copy them then; they cannot be looked up later.
+3. Everyone must replace their temporary password the first time they sign in.
+4. *Reset password* issues a new temporary password and signs the person out everywhere. *Deactivate* blocks sign-in
+   at once, including for open sessions. The last active administrator cannot be deactivated.
+
+**Faculty**: *My subjects* lists their subjects. *Enter marks* opens a sheet of every student in that subject's
+semester against every component. Leave a box empty to keep the stored mark. Out-of-range or malformed values are
+rejected and nothing is saved.
+
+**Students**: *My results* shows their results; *Marksheet* is a print-ready page.
+
+## Security notes
+
+- Passwords are salted scrypt hashes. No default or shared password exists. Temporary passwords are random, shown
+  once on the response page, and never logged, flashed or written to the audit log.
+- Roles are checked on the server for every request. The role is read from the database, so editing a cookie or form
+  does nothing. Students are identified by their account, never by an id in the URL or form.
+- Sessions: HttpOnly, SameSite=Lax cookies; idle timeout (default 30 minutes) and a 12-hour absolute limit. Logging
+  out, changing or resetting a password, or deactivating an account ends every session of that user.
+- Failed sign-ins are limited per account-and-address and per address. The counters live in memory, so they reset when
+  the app restarts and are not shared between processes.
+- CSRF tokens on every form. A content security policy, `X-Frame-Options`, `nosniff` and `no-store` caching headers.
+- Errors shown to people never contain SQL, file paths or tracebacks; details go to the server log.
+- The server listens on `127.0.0.1` only and debug mode is off unless you set `FLASK_DEBUG=1`.
+- Run the application under a dedicated MySQL account instead of `root`: `SELECT, INSERT, UPDATE, DELETE` on this
+  database for day-to-day use, plus `CREATE` and `ALTER` only for the moment you run `flask --app app migrate`.
+- All sign-in attempts from computers behind one shared address (a college network, a proxy) count together toward the
+  per-address limit, so one noisy client can block the others for the window.
+- Serving it to other computers needs HTTPS and a real WSGI server (for example Waitress on Windows); set
+  `SESSION_COOKIE_SECURE=1` when you do. That setup is outside this project.
+
+## Tests
+
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest
 ```
- * Serving Flask app 'app'
- * Debug mode: on
- * Running on http://0.0.0.0:5000
+
+Without a test database, the database-backed tests are **skipped** and the rest run. To run everything, start a
+throwaway MySQL (never one holding real data) and point the tests at it. Each test run creates and drops its own
+`srps_test_*` database and refuses to touch any other name.
+
+```powershell
+docker run -d --name srps-test-mysql -e MYSQL_ROOT_PASSWORD=<choose-a-throwaway-password> -p 127.0.0.1:33306:3306 mysql:8.4
+$env:SRPS_TEST_DB_HOST = "127.0.0.1"
+$env:SRPS_TEST_DB_PORT = "33306"
+$env:SRPS_TEST_DB_USER = "root"
+$env:SRPS_TEST_DB_PASSWORD = "<the same throwaway password>"
+python -m pytest
 ```
 
-#### 10. Open the Application in Browser
+The suite covers configuration, SQL script safety, migrations on a database that already holds data, hashing and
+sessions, login throttling, CSRF, every route for every role (including attempts to reach another student's data),
+mark entry rules, result calculations and the audit log.
 
-Open your web browser and navigate to:
+## Database scripts
 
-```
-http://localhost:5000
-```
+| File | Purpose | Safe to re-run? |
+|------|---------|-----------------|
+| `schema.sql` | Creates the core tables if missing | Yes. Never drops or alters anything |
+| `migration_add_assessments.sql` | Assessment tables and the stock components | **Run once.** Re-running copies the legacy marks again, bringing back any copied mark deleted since (see `docs/database_design.md`) |
+| `migrations/NNN_*.sql` | Accounts, faculty, audit log | Run through `flask --app app migrate`; each applies once |
+| `seed.sql`, `seed_vit_students.sql` | **Synthetic** sample data | Yes; rows are matched on their natural keys |
+| `queries.sql` | Reference queries; the INSERT/UPDATE/DELETE examples are commented out | Yes (read-only) |
+| `verification.sql` | Integrity checks | Yes (read-only) |
 
-You should see the dashboard with statistics and recent marks entries.
+## Known limitations
+
+- No email, so no self-service password recovery: an administrator resets passwords.
+- A faculty member's students are those in the subject's semester. The schema has no classes or sections.
+- An account's role and linked record are fixed when it is created.
+- Legacy per-examination marks can only be changed by administrators; faculty work with assessment marks.
+- The weighted result needs all six components; there is no "absent" or "withheld" status because none was defined.
+- The "top performers" (85%) and "incomplete" (fewer than 5 subjects) reports use working assumptions, stated on the pages.
+- The login rate limiter is per process (see above). Bootstrap is loaded from a CDN.
 
 ## Troubleshooting
 
-### MySQL Connection Errors
+| Message | Fix |
+|---------|-----|
+| `SECRET_KEY is not set` / `DB_PASSWORD is not set` | Add the value to `.env` (see Set up). |
+| `Could not connect to the MySQL database` | Start MySQL (`net start MySQL80`), then check `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` in `.env`. |
+| `Base tables are missing` from `migrate` | New install: run `schema.sql` and `migration_add_assessments.sql` first. |
+| Too many failed attempts | Wait for the window (15 minutes by default) or restart the app. |
+| `Address already in use` | Set `APP_PORT` in `.env` to another number. |
+| `ModuleNotFoundError: flask` | Activate the virtual environment and run `pip install -r requirements.txt`. |
 
-**Error**: `Can't connect to MySQL server on 'localhost'`
+## Documentation
 
-**Solutions**:
-1. Verify MySQL service is running: `net start MySQL80`
-2. Check MySQL port is 3306 (default)
-3. Verify your MySQL root password in `.env`
-4. Check firewall settings
-
-**Error**: `Access denied for user 'root'@'localhost'`
-
-**Solutions**:
-1. Verify password in `.env` matches your MySQL root password
-2. If you forgot the password, reset it in MySQL Workbench
-
-### Port Already in Use
-
-**Error**: `Address already in use` when starting Flask
-
-**Solution**:
-- Change the port in `app.py` from 5000 to another port (e.g., 5001)
-- Or stop the process using port 5000:
-  ```powershell
-  # Find the process
-  netstat -ano | findstr :5000
-  # Kill the process (replace PID with actual process ID)
-  taskkill /PID <PID> /F
-  ```
-
-### Python Module Import Errors
-
-**Error**: `ModuleNotFoundError: No module named 'flask'`
-
-**Solution**:
-- Ensure virtual environment is activated: `.\venv\Scripts\Activate`
-- Reinstall dependencies: `pip install -r requirements.txt`
-
-### Database Not Found
-
-**Error**: `Unknown database 'student_result_db'`
-
-**Solution**:
-- Execute `database/schema.sql` in MySQL Workbench
-- Verify database exists: `SHOW DATABASES;`
-
-### CHECK Constraint Not Enforced
-
-**Note**: Some MySQL versions may not enforce CHECK constraints. The application includes server-side validation to handle this.
-
-## Running Tests
-
-To run the automated tests:
-
-```powershell
-# Ensure virtual environment is activated
-.\venv\Scripts\Activate
-
-# Run tests
-python tests\test_app.py
-```
-
-**Note**: Database integration tests require MySQL to be running and properly configured. If MySQL is not available, those tests will be skipped.
-
-## Using the Assessment System
-
-The new 6-component assessment system provides more accurate grade calculation:
-
-1. **Enter Assessment Marks**: Navigate to "Assessments" in the menu
-2. **Select Student and Subject**: Choose the student and subject
-3. **Enter Scores**: Fill in marks for all 6 components (CAT1, CAT2, CAT3, Assignment, Project, End Semester)
-4. **Calculate Result**: Use the "Calculate Result" feature to see the weighted score and grade
-
-The system automatically:
-- Calculates weighted scores for each component
-- Sums the weighted scores to get the final score out of 100
-- Assigns the appropriate grade (S, A, B, C, D, E, F)
-- Determines pass/fail status based on 40% threshold
-
-## Grading System
-
-The system uses VIT-style grading:
-
-| Percentage | Grade | Description |
-|------------|-------|-------------|
-| 90-100% | S | Outstanding |
-| 80-89% | A | Excellent |
-| 70-79% | B | Very Good |
-| 60-69% | C | Good |
-| 50-59% | D | Satisfactory |
-| 40-49% | E | Pass |
-| Below 40% | F | Fail |
-
-**Pass Threshold**: 40% per subject and overall
-
-## Database Queries
-
-Important SQL queries are documented in:
-- `database/queries.sql` - All important SQL operations used in the application
-- `database/verification.sql` - Verification queries for assessment demonstrations
-
-## Demonstration Student
-
-The seed data includes a demonstration student for reproducible calculations:
-
-- **Registration Number**: 2024CS001
-- **Name**: Rahul Sharma
-- **Marks** (Legacy System):
-  - CS301 (Data Structures): 85/100 (85% - Grade A)
-  - CS302 (DBMS): 76/100 (76% - Grade B)
-  - CS303 (Operating Systems): 92/100 (92% - Grade S)
-  - CS304 (Computer Networks): 78/100 (78% - Grade B)
-  - CS305 (Web Technologies): 88/100 (88% - Grade A)
-
-**Expected Result (Legacy)**:
-- Total Obtained: 419
-- Total Maximum: 500
-- Overall Percentage: 83.8%
-- Status: Pass
-
-### Assessment System Example
-
-For the weighted assessment system, a sample calculation:
-
-Assessment scores:
-- CAT1: 42/50 (84%) → weighted: 12.6
-- CAT2: 38/50 (76%) → weighted: 11.4
-- CAT3: 45/50 (90%) → weighted: 13.5
-- Assignment: 40/50 (80%) → weighted: 8.0
-- Project: 85/100 (85%) → weighted: 17.0
-- End Semester: 78/100 (78%) → weighted: 19.5
-
-**Total Weighted Score**: 82.0/100
-**Grade**: A (80-89%)
-**Status**: Pass
-
-### VIT-Style Students
-
-The system includes 25 VIT-style students with registration numbers like:
-- 23BCE1042 (2023 Bioengineering)
-- 24BIT0237 (2024 Information Technology)
-- 25BAI0493 (2025 Artificial Intelligence)
-
-Email pattern: firstname.lastnameYYYY@vitstudent.ac.in
-
-## Assessment Demonstration Guides
-
-Detailed guides for recording assessment demonstration videos are available in the `docs/` folder:
-
-- `docs/assessment8_demo.md` - Frontend and Database Connectivity
-- `docs/assessment9_demo.md` - Backend and Database Operations
-- `docs/assessment10_demo.md` - Complete End-to-End Workflow
-
-## Database Design Documentation
-
-Comprehensive database design documentation is available in:
-- `docs/database_design.md`
+- `docs/database_design.md`: tables, relationships, constraints, migrations.
+- `docs/AUDIT_REPORT.md`: the initial audit and what was done about each finding.
+- `docs/assessment8_demo.md`, `assessment9_demo.md`, `assessment10_demo.md`: demonstration guides (sign in first).
+- `PROJECT_SUMMARY.md`, `UPGRADE_SUMMARY.md`: historical notes from earlier versions of the project.
 
 ## License
 
-This project is created for academic purposes as part of a DBMS course project.
-
-## Support
-
-For issues or questions, refer to the troubleshooting section above or consult the assessment demonstration guides.
+Created for academic purposes as part of a DBMS course project.

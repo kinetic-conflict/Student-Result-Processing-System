@@ -70,7 +70,7 @@ Stores student information with VIT-style registration numbers.
 | student_id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique student identifier |
 | registration_number | VARCHAR(20) | UNIQUE, NOT NULL | VIT-style registration (e.g., 23BCE1042) |
 | full_name | VARCHAR(100) | NOT NULL | Student's full name |
-| email | VARCHAR(100) | UNIQUE, NULLABLE | VIT student email (firstname.lastname2025@vitstudent.ac.in) |
+| email | VARCHAR(100) | UNIQUE, NULLABLE | Student email (sample data uses firstname.lastnameYYYY@students.example) |
 | department | VARCHAR(50) | NULLABLE | Department/branch (Bioengineering, IT, etc.) |
 | semester | INT | NULLABLE, CHECK (1-10) | Current semester |
 | academic_year | VARCHAR(10) | NULLABLE | Academic year (e.g., 2024-2025) |
@@ -205,15 +205,54 @@ Stores individual assessment scores for students.
 
 ### 7. users
 
-Stores user accounts for authentication (optional feature).
+Login accounts. Created in `schema.sql` in its original shape and extended by migration `002_accounts.sql`.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | user_id | INT | PRIMARY KEY, AUTO_INCREMENT | Unique user identifier |
-| username | VARCHAR(50) | UNIQUE, NOT NULL | Username |
-| password_hash | VARCHAR(255) | NOT NULL | Hashed password |
-| role | VARCHAR(20) | NOT NULL, DEFAULT 'admin' | User role (admin, faculty, etc.) |
-| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Account creation timestamp |
+| username | VARCHAR(50) | UNIQUE, NOT NULL | Login name (case-insensitive) |
+| email | VARCHAR(100) | UNIQUE, NULL | Optional; can also be used to sign in |
+| password_hash | VARCHAR(255) | NOT NULL | Salted scrypt hash. Never the password |
+| role | VARCHAR(20) | NOT NULL, DEFAULT 'admin' | `admin`, `faculty` or `student` |
+| is_active | TINYINT(1) | NOT NULL, DEFAULT 1 | 0 blocks sign-in and ends open sessions |
+| must_change_password | TINYINT(1) | NOT NULL, DEFAULT 0 | 1 after a temporary password was issued |
+| session_version | INT | NOT NULL, DEFAULT 1 | Bumped to sign the user out everywhere |
+| student_id | INT | UNIQUE, FK students, NULL | Set for student accounts |
+| faculty_id | INT | UNIQUE, FK faculty, NULL | Set for faculty accounts |
+| last_login_at | DATETIME | NULL | Last successful sign-in |
+| created_at, updated_at | TIMESTAMP | | Bookkeeping |
+
+Constraint `chk_users_role_links`: an `admin` has neither link, a `student` has only `student_id`, a `faculty` has only
+`faculty_id`. The foreign keys use `ON DELETE RESTRICT`, so a student or faculty record that has an account cannot be
+deleted by accident.
+
+### 8. faculty (migration 001)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| faculty_id | INT | PRIMARY KEY, AUTO_INCREMENT | |
+| employee_id | VARCHAR(20) | UNIQUE, NOT NULL | |
+| full_name | VARCHAR(100) | NOT NULL | |
+| email | VARCHAR(100) | UNIQUE | |
+| department | VARCHAR(50) | | |
+| is_active | TINYINT(1) | NOT NULL, DEFAULT 1 | Faculty are deactivated, not deleted |
+
+### 9. faculty_assignments (migration 001)
+
+Which subjects a faculty member may enter marks for. `UNIQUE (faculty_id, subject_id)`; both keys cascade on delete.
+
+**Who counts as "their" students.** The schema has no classes or sections, so the cohort of a subject is the set of
+students whose `semester` equals the subject's `semester`. This rule lives in one function
+(`services/access.py: scope_filter`) and is a working assumption, not a rule taken from the institution.
+
+### 10. audit_log (migration 003)
+
+Append-only record: `user_id` (nullable, `ON DELETE SET NULL`), a copy of `username`, `action`, `entity`, `entity_id`,
+`detail` (never a password), `ip_address`, `created_at`.
+
+### 11. schema_migrations
+
+Created by `flask --app app migrate`. One row per applied file in `database/migrations/`.
 
 ## Relationships
 
@@ -310,22 +349,29 @@ The database follows Third Normal Form (3NF):
 
 ## Migration Strategy
 
-The migration script `migration_add_assessments.sql`:
-1. Creates the new `assessments` table
-2. Creates the new `assessment_marks` table
-3. Inserts the 6 assessment components
-4. Migrates existing marks from the legacy `marks` table to `assessment_marks` as ENDSEM marks
-5. Uses `INSERT IGNORE` to prevent errors on re-execution
-6. Preserves all existing data
+Two things exist, for historical reasons:
+
+1. `database/migration_add_assessments.sql` (original). Creates `assessments` and `assessment_marks`, inserts the six
+   stock components, and copies every legacy `marks` row into `assessment_marks` as an `ENDSEM` mark.
+   **Known caveat:** when one student has marks for the same subject in several examinations, one of them is
+   copied, chosen arbitrarily, and the legacy `maximum_marks` is ignored. Decide which examination counts as
+   end-semester before relying on those copied rows.
+2. `database/migrations/NNN_*.sql` (new), applied in order by `flask --app app migrate`. Additive only: new tables
+   and new columns with safe defaults. Each file runs once and is recorded in `schema_migrations`. A failed file
+   stops the run and is not recorded. MySQL cannot roll back DDL, so back up first (`flask --app app backup`).
+
+`schema.sql` is safe to run on an existing database (it only creates what is missing).
 
 ## Sample Data
 
 The seed data includes:
+All of it is synthetic: invented people, invented numbers, and the reserved `.example` email domain.
+
 - 33 students (8 original + 25 VIT-style)
-- 28 subjects (8 original + 20 VIT-style)
+- 38 subjects (8 original + 30 VIT-style)
 - 6 examinations (4 original + 2 new)
+- 28 legacy marks (`marks`), copied into `assessment_marks` as `ENDSEM` by the migration (see caveat above)
 - 6 assessment components
-- Assessment marks for demonstration
 
 ### VIT-Style Students Examples
 
@@ -337,21 +383,22 @@ Registration numbers follow the pattern: YYXXXXXXX
 Examples:
 - 23BCE1042: 2023 Bioengineering student
 - 24BIT0237: 2024 Information Technology student
-- 25BAI0493: 2025 Artificial Intelligence student
+- 24BAI0493: 2024 Artificial Intelligence student
 
-Email pattern: firstname.lastnameYYYY@vitstudent.ac.in
+Email pattern: firstname.lastnameYYYY@students.example
 - YYYY matches admission year
 
 ## Security Considerations
 
-1. **Parameterized Queries**: All database queries use parameterized statements
-2. **Password Hashing**: User passwords are hashed before storage
-3. **Environment Variables**: Database credentials stored in environment variables
-4. **Least Privilege**: Use dedicated MySQL user with limited privileges in production
+1. **Parameterized queries**: every statement passes values separately from the SQL text.
+2. **Password hashing**: salted scrypt hashes (Werkzeug). No default or shared password exists anywhere.
+3. **Secrets in the environment**: database password and signing key come from `.env`, which is not tracked by Git.
+4. **Server-side authorization**: the role is read from the database on every request, never from the cookie.
+5. **Least privilege**: run the application with a dedicated MySQL user that has rights on this database only.
 
 ## Performance Considerations
 
 1. **Indexes**: Strategic indexing on frequently queried columns
 2. **Foreign Keys**: Properly indexed for faster JOIN operations
 3. **Query Optimization**: Complex queries use appropriate WHERE clauses and JOINs
-4. **Connection Pooling**: Database connections properly closed after use
+4. **Connections**: one short-lived connection per request step, always closed (no pooling).

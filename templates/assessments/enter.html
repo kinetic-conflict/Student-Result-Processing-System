@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import student_options, subject_options with context %}
+{% block title %}Enter assessment marks - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Enter assessment marks</h1>
+<div class="row"><div class="col-lg-9">
+<div class="card"><div class="card-body">
+    <form method="post" data-single-submit>
+        {{ csrf_input() }}
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6">
+                <label for="student_id" class="form-label">Student</label>
+                <select class="form-select" id="student_id" name="student_id" required>
+                    {{ student_options(students, selected.student_id) }}
+                </select>
+            </div>
+            <div class="col-12 col-md-6">
+                <label for="subject_id" class="form-label">Subject</label>
+                <select class="form-select" id="subject_id" name="subject_id" required>
+                    {{ subject_options(subjects, selected.subject_id) }}
+                </select>
+            </div>
+        </div>
+        <p class="text-muted small">Leave a box empty to keep the mark as it is.</p>
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead><tr><th scope="col">Component</th><th scope="col" class="text-end">Maximum</th>
+                    <th scope="col" class="text-end">Weight</th><th scope="col">Marks</th></tr></thead>
+                <tbody>
+                {% for item in config %}
+                <tr>
+                    <th scope="row" class="fw-normal"><label for="marks_{{ item.code }}">{{ item.name }}</label></th>
+                    <td class="text-end">{{ item.max|marks }}</td>
+                    <td class="text-end">{{ item.weight|marks }}%</td>
+                    <td><input type="number" class="form-control" id="marks_{{ item.code }}"
+                               name="marks_{{ item.code }}" step="0.01" min="0" max="{{ item.max|marks }}"
+                               value="{{ entered[item.code] }}"></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">Save marks</button>
+        <a href="{{ url_for('assessments.list_assessment_marks') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div></div>
+</div></div>
+{% endblock %}

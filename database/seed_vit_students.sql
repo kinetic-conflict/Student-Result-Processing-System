@@ -1,6 +1,9 @@
 -- VIT-Style Student Data Expansion
--- This script adds 25 VIT-style students with realistic registration numbers
--- Safe to run multiple times (uses INSERT IGNORE)
+-- SYNTHETIC DEMONSTRATION DATA. Every person, number and email below is made up.
+-- Do not load this into a database that holds real student records.
+--
+-- Adds 25 students and 30 subjects in the style of VIT registration numbers.
+-- Safe to run again: rows are matched on their natural keys and skipped if present.
 -- Execute after migration_add_assessments.sql
 
 USE student_result_db;
@@ -9,42 +12,41 @@ USE student_result_db;
 -- Program codes: BCE (Bioengineering), BIT (Information Technology), BDS (Data Science), 
 -- BAI (AI), BEC (Electronics), BME (Mechanical Engineering)
 -- Admission years: 2023, 2024, 2025
--- Email pattern: firstname.lastname2025@vitstudent.ac.in
+-- Email pattern: firstname.lastname2025@students.example
 
 INSERT IGNORE INTO students (registration_number, full_name, email, department, semester, academic_year) VALUES
 -- 2023 Batch (3rd year students)
-('23BCE1042', 'Arjun Nair', 'arjun.nair2023@vitstudent.ac.in', 'Bioengineering', 5, '2024-2025'),
-('23BCE1156', 'Diya Sharma', 'diya.sharma2023@vitstudent.ac.in', 'Bioengineering', 5, '2024-2025'),
-('23BIT0237', 'Karthik Rajan', 'karthik.rajan2023@vitstudent.ac.in', 'Information Technology', 5, '2024-2025'),
-('23BIT0389', 'Meera Krishnan', 'meera.krishnan2023@vitstudent.ac.in', 'Information Technology', 5, '2024-2025'),
-('23BDS0156', 'Neha Verma', 'neha.verma2023@vitstudent.ac.in', 'Data Science', 5, '2024-2025'),
-('23BDS0278', 'Rohan Singh', 'rohan.singh2023@vitstudent.ac.in', 'Data Science', 5, '2024-2025'),
-('23BAI0934', 'Sanya Gupta', 'sanya.gupta2023@vitstudent.ac.in', 'Artificial Intelligence', 5, '2024-2025'),
-('23BAI1089', 'Vikram Patel', 'vikram.patel2023@vitstudent.ac.in', 'Artificial Intelligence', 5, '2024-2025'),
+('23BCE1042', 'Arjun Nair', 'arjun.nair2023@students.example', 'Bioengineering', 5, '2024-2025'),
+('23BCE1156', 'Diya Sharma', 'diya.sharma2023@students.example', 'Bioengineering', 5, '2024-2025'),
+('23BIT0237', 'Karthik Rajan', 'karthik.rajan2023@students.example', 'Information Technology', 5, '2024-2025'),
+('23BIT0389', 'Meera Krishnan', 'meera.krishnan2023@students.example', 'Information Technology', 5, '2024-2025'),
+('23BDS0156', 'Neha Verma', 'neha.verma2023@students.example', 'Data Science', 5, '2024-2025'),
+('23BDS0278', 'Rohan Singh', 'rohan.singh2023@students.example', 'Data Science', 5, '2024-2025'),
+('23BAI0934', 'Sanya Gupta', 'sanya.gupta2023@students.example', 'Artificial Intelligence', 5, '2024-2025'),
+('23BAI1089', 'Vikram Patel', 'vikram.patel2023@students.example', 'Artificial Intelligence', 5, '2024-2025'),
 
 -- 2024 Batch (2nd year students)
-('24BCE0567', 'Aditi Reddy', 'aditi.reddy2024@vitstudent.ac.in', 'Bioengineering', 3, '2024-2025'),
-('24BCE0789', 'Bhavesh Kumar', 'bhavesh.kumar2024@vitstudent.ac.in', 'Bioengineering', 3, '2024-2025'),
-('24BIT0145', 'Chitra Iyer', 'chitra.iyer2024@vitstudent.ac.in', 'Information Technology', 3, '2024-2025'),
-('24BIT0298', 'Deepak Menon', 'deepak.menon2024@vitstudent.ac.in', 'Information Technology', 3, '2024-2024'),
-('24BDS0089', 'Esha Das', 'esha.das2024@vitstudent.ac.in', 'Data Science', 3, '2024-2025'),
-('24BDS0192', 'Farhan Ahmed', 'farhan.ahmed2024@vitstudent.ac.in', 'Data Science', 3, '2024-2025'),
-('24BAI0493', 'Gauri Joshi', 'gauri.joshi2024@vitstudent.ac.in', 'Artificial Intelligence', 3, '2024-2025'),
-('24BAI0621', 'Harsh Mehta', 'harsh.mehta2024@vitstudent.ac.in', 'Artificial Intelligence', 3, '2024-2025'),
-('24BEC0345', 'Ishaan Nair', 'ishaan.nair2024@vitstudent.ac.in', 'Electronics', 3, '2024-2025'),
-('24BEC0456', 'Jaya Pillai', 'jaya.pillai2024@vitstudent.ac.in', 'Electronics', 3, '2024-2025'),
+('24BCE0567', 'Aditi Reddy', 'aditi.reddy2024@students.example', 'Bioengineering', 3, '2024-2025'),
+('24BCE0789', 'Bhavesh Kumar', 'bhavesh.kumar2024@students.example', 'Bioengineering', 3, '2024-2025'),
+('24BIT0145', 'Chitra Iyer', 'chitra.iyer2024@students.example', 'Information Technology', 3, '2024-2025'),
+('24BIT0298', 'Deepak Menon', 'deepak.menon2024@students.example', 'Information Technology', 3, '2024-2025'),
+('24BDS0089', 'Esha Das', 'esha.das2024@students.example', 'Data Science', 3, '2024-2025'),
+('24BDS0192', 'Farhan Ahmed', 'farhan.ahmed2024@students.example', 'Data Science', 3, '2024-2025'),
+('24BAI0493', 'Gauri Joshi', 'gauri.joshi2024@students.example', 'Artificial Intelligence', 3, '2024-2025'),
+('24BAI0621', 'Harsh Mehta', 'harsh.mehta2024@students.example', 'Artificial Intelligence', 3, '2024-2025'),
+('24BEC0345', 'Ishaan Nair', 'ishaan.nair2024@students.example', 'Electronics', 3, '2024-2025'),
+('24BEC0456', 'Jaya Pillai', 'jaya.pillai2024@students.example', 'Electronics', 3, '2024-2025'),
 
 -- 2025 Batch (1st year students)
-('25BCE0234', 'Kavita Rao', 'kavita.rao2025@vitstudent.ac.in', 'Bioengineering', 1, '2025-2026'),
-('25BCE0356', 'Lakshman Singh', 'lakshman.singh2025@vitstudent.ac.in', 'Bioengineering', 1, '2025-2026'),
-('25BIT0123', 'Madhuri Desai', 'madhuri.desai2025@vitstudent.ac.in', 'Information Technology', 1, '2025-2026'),
-('25BIT0245', 'Nandan Kulkarni', 'nandan.kulkarni2025@vitstudent.ac.in', 'Information Technology', 1, '2025-2026'),
-('25BME0189', 'Omkar Patil', 'omkar.patil2025@vitstudent.ac.in', 'Mechanical Engineering', 1, '2025-2026'),
-('25BME0298', 'Priyanka Choudhury', 'priyanka.choudhury2025@vitstudent.ac.in', 'Mechanical Engineering', 1, '2025-2026'),
-('25BDS0078', 'Quasim Ali', 'quasim.ali2025@vitstudent.ac.in', 'Data Science', 1, '2025-2026');
+('25BCE0234', 'Kavita Rao', 'kavita.rao2025@students.example', 'Bioengineering', 1, '2025-2026'),
+('25BCE0356', 'Lakshman Singh', 'lakshman.singh2025@students.example', 'Bioengineering', 1, '2025-2026'),
+('25BIT0123', 'Madhuri Desai', 'madhuri.desai2025@students.example', 'Information Technology', 1, '2025-2026'),
+('25BIT0245', 'Nandan Kulkarni', 'nandan.kulkarni2025@students.example', 'Information Technology', 1, '2025-2026'),
+('25BME0189', 'Omkar Patil', 'omkar.patil2025@students.example', 'Mechanical Engineering', 1, '2025-2026'),
+('25BME0298', 'Priyanka Choudhury', 'priyanka.choudhury2025@students.example', 'Mechanical Engineering', 1, '2025-2026'),
+('25BDS0078', 'Quasim Ali', 'quasim.ali2025@students.example', 'Data Science', 1, '2025-2026');
 
--- Update subjects with VIT-style course codes
--- These replace the generic codes with more realistic VIT course codes
+-- Add subjects with VIT-style course codes (these sit beside the generic codes; nothing is replaced)
 INSERT IGNORE INTO subjects (subject_code, subject_name, credits, semester) VALUES
 -- Common Engineering Courses (Semester 1-2)
 ('CSE1001', 'Engineering Mathematics I', 4.0, 1),
@@ -82,10 +84,17 @@ INSERT IGNORE INTO subjects (subject_code, subject_name, credits, semester) VALU
 ('CSE6004', 'Blockchain Technology', 3.0, 6),
 ('CSE6005', 'Capstone Project', 6.0, 6);
 
--- Add examination for the new academic year
-INSERT IGNORE INTO examinations (exam_name, academic_year, semester, exam_date) VALUES
-('End Semester Examination 2025-2026', '2025-2026', 1, '2025-12-15'),
-('Mid Semester Examination 2025-2026', '2025-2026', 1, '2025-10-10');
+-- Add examinations for the new academic year (examinations have no unique key, so check first)
+INSERT INTO examinations (exam_name, academic_year, semester, exam_date)
+SELECT v.exam_name, v.academic_year, v.semester, v.exam_date
+FROM (
+    SELECT 'End Semester Examination 2025-2026' AS exam_name, '2025-2026' AS academic_year, 1 AS semester, DATE '2025-12-15' AS exam_date
+    UNION ALL SELECT 'Mid Semester Examination 2025-2026', '2025-2026', 1, DATE '2025-10-10'
+) AS v
+WHERE NOT EXISTS (
+    SELECT 1 FROM examinations e
+    WHERE e.exam_name = v.exam_name AND e.academic_year = v.academic_year AND e.semester = v.semester
+);
 
 -- Display summary
 SELECT 'VIT student data expansion completed!' AS message;

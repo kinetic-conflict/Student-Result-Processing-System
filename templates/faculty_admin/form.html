@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, form_card with context %}
+{% block title %}Faculty - Student Result Processing System{% endblock %}
+{% block content %}
+{% set m = member or {} %}
+{% call form_card('Add faculty member' if mode == 'new' else 'Edit faculty member', url_for('faculty_admin.list_faculty')) %}
+    {% if mode == 'new' %}
+    {{ field('employee_id', 'Employee ID', form.get('employee_id', ''), required=True, maxlength=20) }}
+    {% else %}
+    {{ field('employee_id', 'Employee ID', m.employee_id, disabled=True) }}
+    {% endif %}
+    {{ field('full_name', 'Full name', form.get('full_name', m.full_name or ''), required=True, maxlength=100) }}
+    {{ field('email', 'Email', form.get('email', m.email or ''), type='email', maxlength=100) }}
+    {{ field('department', 'Department', form.get('department', m.department or ''), maxlength=50) }}
+{% endcall %}
+{% endblock %}

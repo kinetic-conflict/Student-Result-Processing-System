@@ -1,197 +1,82 @@
 {% extends "base.html" %}
-
-{% block title %}
-    {% if action == 'add' %}Add Marks - {% elif action == 'edit' %}Edit Marks - {% endif %}
-    Marks Management
-{% endblock %}
+{% from "_macros.html" import field, choice, form_card, pager, grade, status with context %}
+{% block title %}Examination marks - Student Result Processing System{% endblock %}
 
 {% block content %}
 {% if action == 'add' %}
-<h1 class="mb-4">Enter Marks</h1>
-
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('marks.add_mark') }}">
-                    <div class="mb-3">
-                        <label for="student_id" class="form-label">Student *</label>
-                        <select class="form-select" id="student_id" name="student_id" required>
-                            <option value="">Select Student</option>
-                            {% for student in students %}
-                            <option value="{{ student.student_id }}">{{ student.registration_number }} - {{ student.full_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="subject_id" class="form-label">Subject *</label>
-                        <select class="form-select" id="subject_id" name="subject_id" required>
-                            <option value="">Select Subject</option>
-                            {% for subject in subjects %}
-                            <option value="{{ subject.subject_id }}">{{ subject.subject_code }} - {{ subject.subject_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="exam_id" class="form-label">Examination *</label>
-                        <select class="form-select" id="exam_id" name="exam_id" required>
-                            <option value="">Select Examination</option>
-                            {% for exam in examinations %}
-                            <option value="{{ exam.exam_id }}">{{ exam.exam_name }} ({{ exam.academic_year }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="marks_obtained" class="form-label">Marks Obtained *</label>
-                            <input type="number" class="form-control" id="marks_obtained" name="marks_obtained" step="0.01" min="0" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="maximum_marks" class="form-label">Maximum Marks *</label>
-                            <input type="number" class="form-control" id="maximum_marks" name="maximum_marks" step="0.01" min="0.01" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save Marks</button>
-                    <a href="{{ url_for('marks.list_marks') }}" class="btn btn-secondary">Cancel</a>
-                </form>
-            </div>
+    {% call form_card('Add examination marks', url_for('marks.list_marks')) %}
+        {{ choice('student_id', 'Student', student_options, form.get('student_id', ''), required=True) }}
+        {{ choice('subject_id', 'Subject', subject_options, form.get('subject_id', ''), required=True) }}
+        {{ choice('exam_id', 'Examination', exam_options, form.get('exam_id', ''), required=True) }}
+        <div class="row">
+            <div class="col-md-6">{{ field('marks_obtained', 'Marks obtained', form.get('marks_obtained', ''), type='number', required=True, min=0, step='0.01') }}</div>
+            <div class="col-md-6">{{ field('maximum_marks', 'Maximum marks', form.get('maximum_marks', '100'), type='number', required=True, min='0.01', step='0.01') }}</div>
         </div>
-    </div>
-</div>
+    {% endcall %}
 
 {% elif action == 'edit' %}
-<h1 class="mb-4">Edit Marks</h1>
-
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
-                <p class="mb-3">
-                    <strong>Student:</strong> {{ student.registration_number }} - {{ student.full_name }}<br>
-                    <strong>Subject:</strong> {{ subject.subject_code }} - {{ subject.subject_name }}<br>
-                    <strong>Examination:</strong> {{ examination.exam_name }} ({{ examination.academic_year }})
-                </p>
-                <form method="POST" action="{{ url_for('marks.edit_mark', mark_id=mark.mark_id) }}">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="marks_obtained" class="form-label">Marks Obtained *</label>
-                            <input type="number" class="form-control" id="marks_obtained" name="marks_obtained" step="0.01" min="0" value="{{ mark.marks_obtained }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="maximum_marks" class="form-label">Maximum Marks *</label>
-                            <input type="number" class="form-control" id="maximum_marks" name="maximum_marks" step="0.01" min="0.01" value="{{ mark.maximum_marks }}" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Update Marks</button>
-                    <a href="{{ url_for('marks.list_marks') }}" class="btn btn-secondary">Cancel</a>
-                </form>
-            </div>
+    {% call form_card('Edit examination marks', url_for('marks.list_marks')) %}
+        <dl class="row">
+            <dt class="col-sm-3">Student</dt><dd class="col-sm-9">{{ mark.registration_number }} - {{ mark.full_name }}</dd>
+            <dt class="col-sm-3">Subject</dt><dd class="col-sm-9">{{ mark.subject_code }} - {{ mark.subject_name }}</dd>
+            <dt class="col-sm-3">Examination</dt><dd class="col-sm-9">{{ mark.exam_name }} ({{ mark.academic_year }})</dd>
+        </dl>
+        <div class="row">
+            <div class="col-md-6">{{ field('marks_obtained', 'Marks obtained', form.get('marks_obtained', mark.marks_obtained|marks), type='number', required=True, min=0, step='0.01') }}</div>
+            <div class="col-md-6">{{ field('maximum_marks', 'Maximum marks', form.get('maximum_marks', mark.maximum_marks|marks), type='number', required=True, min='0.01', step='0.01') }}</div>
         </div>
-    </div>
-</div>
+    {% endcall %}
 
 {% else %}
-<h1 class="mb-4">Marks Management</h1>
-
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('marks.list_marks') }}">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <select class="form-select" name="student_id">
-                                <option value="">All Students</option>
-                                {% for student in students %}
-                                <option value="{{ student.student_id }}" {% if filters.student_id == student.student_id|string %}selected{% endif %}>
-                                    {{ student.registration_number }} - {{ student.full_name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-select" name="subject_id">
-                                <option value="">All Subjects</option>
-                                {% for subject in subjects %}
-                                <option value="{{ subject.subject_id }}" {% if filters.subject_id == subject.subject_id|string %}selected{% endif %}>
-                                    {{ subject.subject_code }} - {{ subject.subject_name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <select class="form-select" name="exam_id">
-                                <option value="">All Examinations</option>
-                                {% for exam in examinations %}
-                                <option value="{{ exam.exam_id }}" {% if filters.exam_id == exam.exam_id|string %}selected{% endif %}>
-                                    {{ exam.exam_name }} ({{ exam.academic_year }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-primary w-100">Filter</button>
-                            <a href="{{ url_for('marks.list_marks') }}" class="btn btn-secondary w-100 mt-2 mt-md-0">Clear</a>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Examination marks</h1>
+    <a class="btn btn-primary" href="{{ url_for('marks.add_mark') }}">Add marks</a>
 </div>
-
-<div class="row mb-4">
-    <div class="col-12 text-end">
-        <a href="{{ url_for('marks.add_mark') }}" class="btn btn-primary">Enter New Marks</a>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-3">
+        <label class="form-label" for="student_id">Student</label>
+        <select class="form-select" id="student_id" name="student_id"><option value="">All</option>
+            {% for s in students %}<option value="{{ s.student_id }}"{% if filters.student_id == s.student_id %} selected{% endif %}>{{ s.registration_number }} - {{ s.full_name }}</option>{% endfor %}
+        </select>
     </div>
-</div>
-
-<div class="card">
-    <div class="card-body">
-        {% if marks %}
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Registration No.</th>
-                        <th>Student Name</th>
-                        <th>Subject</th>
-                        <th>Examination</th>
-                        <th>Marks Obtained</th>
-                        <th>Maximum Marks</th>
-                        <th>Percentage</th>
-                        <th>Grade</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for mark in marks %}
-                    <tr>
-                        <td>{{ mark.registration_number }}</td>
-                        <td>{{ mark.full_name }}</td>
-                        <td>{{ mark.subject_code }} - {{ mark.subject_name }}</td>
-                        <td>{{ mark.exam_name }}</td>
-                        <td>{{ mark.marks_obtained }}</td>
-                        <td>{{ mark.maximum_marks }}</td>
-                        <td>{{ mark.percentage }}%</td>
-                        <td><span class="badge grade-{{ mark.grade.replace('+', '') }}">{{ mark.grade }}</span></td>
-                        <td><span class="badge pass-{{ mark.pass_status }}">{{ mark.pass_status }}</span></td>
-                        <td>
-                            <a href="{{ url_for('marks.edit_mark', mark_id=mark.mark_id) }}" class="btn btn-sm btn-warning">Edit</a>
-                            <form method="POST" action="{{ url_for('marks.delete_mark', mark_id=mark.mark_id) }}" class="d-inline">
-                                <button type="submit" class="btn btn-sm btn-danger btn-delete">Delete</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="col-12 col-md-3">
+        <label class="form-label" for="subject_id">Subject</label>
+        <select class="form-select" id="subject_id" name="subject_id"><option value="">All</option>
+            {% for s in subjects %}<option value="{{ s.subject_id }}"{% if filters.subject_id == s.subject_id %} selected{% endif %}>{{ s.subject_code }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-4">
+        <label class="form-label" for="exam_id">Examination</label>
+        <select class="form-select" id="exam_id" name="exam_id"><option value="">All</option>
+            {% for e in examinations %}<option value="{{ e.exam_id }}"{% if filters.exam_id == e.exam_id %} selected{% endif %}>{{ e.exam_name }} ({{ e.academic_year }})</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end"><button class="btn btn-secondary w-100" type="submit">Filter</button></div>
+</form>
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Student</th><th scope="col">Subject</th><th scope="col">Examination</th>
+            <th scope="col" class="text-end">Marks</th><th scope="col" class="text-end">Percent</th>
+            <th scope="col">Grade</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+        {% for mark in marks %}
+        <tr><td>{{ mark.registration_number }}<br><small>{{ mark.full_name }}</small></td>
+            <td>{{ mark.subject_code }}</td><td>{{ mark.exam_name }}</td>
+            <td class="text-end">{{ mark.marks_obtained|marks }} / {{ mark.maximum_marks|marks }}</td>
+            <td class="text-end">{{ mark.percentage|marks }}%</td>
+            <td>{{ grade(mark.grade) }}</td><td>{{ status(mark.pass_status) }}</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('marks.edit_mark', mark_id=mark.mark_id) }}">Edit</a>
+                <form method="post" class="d-inline" action="{{ url_for('marks.delete_mark', mark_id=mark.mark_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-danger btn-delete">Delete</button>
+                </form></td></tr>
         {% else %}
-        <p class="text-muted">No marks records found. {% if filters.student_id or filters.subject_id or filters.exam_id %}Try clearing the filters.{% else %}Enter marks to get started.{% endif %}</p>
-        {% endif %}
-    </div>
+        <tr><td colspan="8" class="text-center text-muted py-4">No marks recorded yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
+{{ pager(page) }}
 {% endif %}
 {% endblock %}

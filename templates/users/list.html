@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager with context %}
+{% block title %}Accounts - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0">Accounts</h1>
+    <a class="btn btn-primary" href="{{ url_for('users.create_user') }}">New account</a>
+</div>
+
+{% if waiting_students or waiting_faculty %}
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-3" role="status">
+    <span>Without a login yet:
+        <strong>{{ waiting_students }}</strong> student(s), <strong>{{ waiting_faculty }}</strong> faculty.</span>
+    {% for role, count in (('student', waiting_students), ('faculty', waiting_faculty)) if count %}
+    <form method="post" action="{{ url_for('users.create_accounts_in_bulk') }}" class="m-0">
+        {{ csrf_input() }}
+        <input type="hidden" name="role" value="{{ role }}">
+        <button type="submit" class="btn btn-sm btn-outline-primary"
+                data-confirm="Create {{ count }} {{ role }} account(s) with temporary passwords?">
+            Create all {{ role }} accounts</button>
+    </form>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="get" class="row g-2 mb-3" role="search">
+    <div class="col-12 col-md-6">
+        <label class="visually-hidden" for="search">Search</label>
+        <input class="form-control" id="search" name="search" value="{{ search }}" placeholder="Username, email or name">
+    </div>
+    <div class="col-8 col-md-3">
+        <label class="visually-hidden" for="role">Role</label>
+        <select class="form-select" id="role" name="role">
+            <option value="">All roles</option>
+            {% for r in roles %}<option value="{{ r }}"{% if role == r %} selected{% endif %}>{{ r|capitalize }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-4 col-md-3"><button class="btn btn-secondary w-100" type="submit">Filter</button></div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Linked record</th>
+            <th scope="col">Status</th><th scope="col">Last sign-in</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+        <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.username }}{% if user.email %}<br><small class="text-muted">{{ user.email }}</small>{% endif %}</td>
+            <td><span class="badge text-bg-secondary">{{ user.role }}</span></td>
+            <td>{% if user.record_code %}{{ user.record_code }}<br><small>{{ user.display_name }}</small>{% else %}&mdash;{% endif %}</td>
+            <td>{% if user.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-danger">Inactive</span>{% endif %}
+                {% if user.must_change_password %}<br><small class="text-muted">Password change pending</small>{% endif %}</td>
+            <td>{{ user.last_login_at or 'Never' }}</td>
+            <td class="text-end text-nowrap">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('users.edit_user', user_id=user.user_id) }}">Edit</a>
+                <form method="post" class="d-inline" action="{{ url_for('users.reset_password', user_id=user.user_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-warning"
+                            data-confirm="Reset the password for {{ user.username }}? They will be signed out.">Reset password</button>
+                </form>
+                {% if user.is_active %}
+                <form method="post" class="d-inline" action="{{ url_for('users.deactivate_user', user_id=user.user_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                            data-confirm="Deactivate {{ user.username }}? They will be signed out.">Deactivate</button>
+                </form>
+                {% else %}
+                <form method="post" class="d-inline" action="{{ url_for('users.activate_user', user_id=user.user_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No accounts match.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{{ pager(page) }}
+{% endblock %}

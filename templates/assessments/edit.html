@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Edit mark - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Edit assessment mark</h1>
+<div class="row"><div class="col-md-7 col-lg-5">
+<div class="card"><div class="card-body">
+    <dl class="row mb-3">
+        <dt class="col-4">Student</dt><dd class="col-8">{{ mark.registration_number }}</dd>
+        <dt class="col-4">Subject</dt><dd class="col-8">{{ mark.subject_code }}</dd>
+        <dt class="col-4">Component</dt><dd class="col-8">{{ mark.code }} (max {{ mark.max|marks }})</dd>
+    </dl>
+    <form method="post" data-single-submit>
+        {{ csrf_input() }}
+        <div class="mb-3">
+            <label class="form-label" for="marks_obtained">Marks obtained</label>
+            <input type="number" class="form-control" id="marks_obtained" name="marks_obtained"
+                   step="0.01" min="0" max="{{ mark.max|marks }}" required
+                   value="{{ typed if typed is not none else mark.marks_obtained|marks }}">
+        </div>
+        <button class="btn btn-primary" type="submit">Save</button>
+        <a class="btn btn-secondary" href="{{ url_for('assessments.list_assessment_marks') }}">Cancel</a>
+    </form>
+</div></div>
+</div></div>
+{% endblock %}

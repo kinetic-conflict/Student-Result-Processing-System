@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, choice, form_card with context %}
+{% block title %}{{ 'New account' if mode == 'new' else 'Edit account' }} - Student Result Processing System{% endblock %}
+{% block content %}
+{% call form_card('New account' if mode == 'new' else 'Edit account', url_for('users.list_users')) %}
+    {% set u = user or {} %}
+    {{ field('username', 'Username', form.get('username', u.username or ''), required=True, maxlength=50,
+             help='3-50 letters, digits, dots, dashes or underscores.') }}
+    {{ field('email', 'Email (optional)', form.get('email', u.email or ''), type='email', maxlength=100) }}
+    {% if mode == 'new' %}
+    {{ choice('role', 'Role', role_options, form.get('role', ''), required=True) }}
+    {{ choice('student_id', 'Student record (student accounts only)', student_options, form.get('student_id', ''), blank='None') }}
+    {{ choice('faculty_id', 'Faculty record (faculty accounts only)', faculty_options, form.get('faculty_id', ''), blank='None') }}
+    <p class="text-muted small">A temporary password is generated and shown once after you save.
+        The person must change it the first time they sign in. Only records without an account are listed.</p>
+    {% else %}
+    <p class="text-muted small">Role: <strong>{{ user.role }}</strong>. The role and linked record are fixed
+        when an account is created. To change them, deactivate this account and create a new one.</p>
+    {% endif %}
+{% endcall %}
+{% endblock %}

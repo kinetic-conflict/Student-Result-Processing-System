@@ -1,90 +1,95 @@
+import logging
+from contextlib import contextmanager
+
 import mysql.connector
+from flask import current_app
 from mysql.connector import Error
-from config import Config
+
+logger = logging.getLogger(__name__)
+
+DUPLICATE_ENTRY = 1062
+ROW_IS_REFERENCED = 1451
+MISSING_REFERENCE = 1452
+
+
+class DatabaseUnavailable(RuntimeError):
+    """MySQL could not be reached. The message is safe to show to users."""
+
 
 def get_db_connection():
-    """Create and return a database connection."""
+    """Open a connection using the running app's DB_* settings."""
+    config = current_app.config
     try:
-        connection = mysql.connector.connect(
-            host=Config.DB_HOST,
-            port=Config.DB_PORT,
-            user=Config.DB_USER,
-            password=Config.DB_PASSWORD,
-            database=Config.DB_NAME
+        return mysql.connector.connect(
+            host=config['DB_HOST'],
+            port=config['DB_PORT'],
+            user=config['DB_USER'],
+            password=config['DB_PASSWORD'],
+            database=config['DB_NAME'],
+            connection_timeout=5,
         )
-        return connection
-    except Error as e:
-        print(f"Error connecting to MySQL: {e}")
-        raise
+    except Error as error:
+        logger.error('Cannot connect to MySQL at %s:%s (database %s, user %s): errno %s %s',
+                     config['DB_HOST'], config['DB_PORT'], config['DB_NAME'],
+                     config['DB_USER'], error.errno, error.msg)
+        raise DatabaseUnavailable(
+            'Could not connect to the MySQL database. Check that MySQL is running '
+            'and that the DB_* settings in your .env file are correct.'
+        ) from error
 
-def execute_query(query, params=None, fetch=True):
-    """Execute a SELECT query and return results."""
-    connection = None
-    cursor = None
+
+@contextmanager
+def transaction():
+    """One connection, one transaction: commit on success, roll back on any error.
+
+    Yields a dict cursor. Statement parameters are never logged, since they can
+    hold personal data.
+    """
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True, buffered=True)
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute(query, params or ())
-        
-        if fetch:
-            result = cursor.fetchall()
-        else:
-            result = cursor.lastrowid
-            connection.commit()
-        
-        return result
-    except Error as e:
-        if connection:
-            connection.rollback()
-        print(f"Error executing query: {e}")
+        yield cursor
+        connection.commit()
+    except BaseException as error:
+        connection.rollback()
+        if isinstance(error, Error):
+            logger.error('Database error %s: %s', error.errno, error.msg)
         raise
     finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
+        cursor.close()
+        connection.close()
+
+
+def execute_query(query, params=None):
+    """Run a SELECT and return all rows as dicts."""
+    with transaction() as cursor:
+        cursor.execute(query, params or ())
+        return cursor.fetchall()
+
 
 def execute_update(query, params=None):
-    """Execute an INSERT, UPDATE, or DELETE query."""
-    connection = None
-    cursor = None
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
+    """Run an INSERT, UPDATE or DELETE and return the new row id (if any)."""
+    with transaction() as cursor:
         cursor.execute(query, params or ())
-        connection.commit()
         return cursor.lastrowid
-    except Error as e:
-        if connection:
-            connection.rollback()
-        print(f"Error executing update: {e}")
-        raise
-    finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
 
-def execute_transaction(queries_with_params):
-    """Execute multiple queries in a transaction."""
-    connection = None
-    cursor = None
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        for query, params in queries_with_params:
-            cursor.execute(query, params or ())
-        
-        connection.commit()
-        return True
-    except Error as e:
-        if connection:
-            connection.rollback()
-        print(f"Error executing transaction: {e}")
-        raise
-    finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
+
+def is_duplicate_error(error):
+    """True when `error` is MySQL's duplicate-key error (errno 1062)."""
+    return getattr(error, 'errno', None) == DUPLICATE_ENTRY
+
+
+def is_referenced_error(error):
+    """True when a delete was refused because other rows still point at the row."""
+    return getattr(error, 'errno', None) == ROW_IS_REFERENCED
+
+
+def is_missing_reference_error(error):
+    """True when an insert or update names a parent row that does not exist."""
+    return getattr(error, 'errno', None) == MISSING_REFERENCE
+
+
+def like_contains(text):
+    """A LIKE pattern matching rows that contain `text`, with %, _ and \\ taken literally."""
+    escaped = text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    return f'%{escaped}%'

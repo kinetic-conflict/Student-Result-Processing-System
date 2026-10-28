@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import grade, status, student_options, subject_options with context %}
+{% block title %}Weighted result - Student Result Processing System{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Weighted result</h1>
+<form method="get" class="row g-2 mb-4">
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="student_id">Student</label>
+        <select class="form-select" id="student_id" name="student_id" required>
+            {{ student_options(students, student.student_id|string if student else '') }}
+        </select>
+    </div>
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="subject_id">Subject</label>
+        <select class="form-select" id="subject_id" name="subject_id" required>
+            {{ subject_options(subjects, subject.subject_id|string if subject else '') }}
+        </select>
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit">Show result</button>
+    </div>
+</form>
+
+{% if result %}
+<div class="card mb-3"><div class="card-body">
+    <h2 class="h5">{{ student.full_name }} ({{ student.registration_number }})</h2>
+    <p class="mb-2">{{ subject.subject_code }} - {{ subject.subject_name }}</p>
+    <p class="mb-0">
+        <strong>Total:</strong> {% if result.total_weighted_score is none %}Not available until every component is entered
+        {% else %}{{ result.total_weighted_score|marks }} / 100{% endif %}
+        &nbsp; <strong>Grade:</strong> {{ grade(result.grade) }}
+        &nbsp; <strong>Status:</strong> {{ status(result.status) }}
+    </p>
+</div></div>
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead><tr><th scope="col">Component</th><th scope="col" class="text-end">Marks</th>
+            <th scope="col" class="text-end">Maximum</th><th scope="col" class="text-end">Percent</th>
+            <th scope="col" class="text-end">Weight</th><th scope="col" class="text-end">Weighted</th></tr></thead>
+        <tbody>
+        {% for item in result.assessment_breakdown %}
+        <tr>
+            <td>{{ item.code }}</td>
+            {% if item.marks_obtained is none %}
+            <td class="text-end text-muted" colspan="2">Not entered</td>
+            <td class="text-end">&mdash;</td>
+            {% else %}
+            <td class="text-end">{{ item.marks_obtained|marks }}</td>
+            <td class="text-end">{{ item.maximum_marks|marks }}</td>
+            <td class="text-end">{{ item.percentage|marks }}%</td>
+            {% endif %}
+            <td class="text-end">{{ item.weight_percentage|marks }}%</td>
+            <td class="text-end"><strong>{{ item.weighted_score|marks }}</strong></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<a class="btn btn-outline-primary"
+   href="{{ url_for('assessments.enter_assessment_marks', student_id=student.student_id, subject_id=subject.subject_id) }}">
+    Edit these marks</a>
+{% endif %}
+{% endblock %}

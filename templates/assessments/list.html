@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager, student_options, subject_options with context %}
+{% block title %}Assessment marks - Student Result Processing System{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h1 class="h3 mb-0">Assessment marks</h1>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{{ url_for('assessments.results') }}">Weighted results</a>
+        <a class="btn btn-primary" href="{{ url_for('assessments.enter_assessment_marks') }}">Enter marks</a>
+    </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="student_id">Student</label>
+        <select class="form-select" id="student_id" name="student_id">
+            {{ student_options(students, filters.student_id|string if filters.student_id else '') }}
+        </select>
+    </div>
+    <div class="col-12 col-md-5">
+        <label class="form-label" for="subject_id">Subject</label>
+        <select class="form-select" id="subject_id" name="subject_id">
+            {{ subject_options(subjects, filters.subject_id|string if filters.subject_id else '') }}
+        </select>
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end">
+        <button class="btn btn-secondary w-100" type="submit">Filter</button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr><th scope="col">Student</th><th scope="col">Subject</th><th scope="col">Component</th>
+                <th scope="col" class="text-end">Marks</th><th scope="col" class="text-end">Max</th>
+                <th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.registration_number }}<br><small>{{ row.full_name }}</small></td>
+                <td>{{ row.subject_code }}</td>
+                <td>{{ row.assessment_name }} <small class="text-muted">({{ row.assessment_code }})</small></td>
+                <td class="text-end">{{ row.marks_obtained|marks }}</td>
+                <td class="text-end">{{ row.maximum_marks|marks }}</td>
+                <td class="text-end text-nowrap">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{{ url_for('assessments.edit_assessment_mark', assessment_mark_id=row.assessment_mark_id) }}">Edit</a>
+                    {% if current_user.role == 'admin' %}
+                    <form method="post" class="d-inline"
+                          action="{{ url_for('assessments.delete_assessment_mark', assessment_mark_id=row.assessment_mark_id) }}">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn btn-sm btn-outline-danger btn-delete">Delete</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No marks recorded yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{{ pager(page) }}
+{% endblock %}

@@ -1,6 +1,10 @@
 -- Student Result Processing System - Important SQL Queries
 -- This file contains key SQL queries used in the application
 -- Reference these queries during Assessment 9 demonstration
+--
+-- This file is safe to run as a whole: it only reads. The INSERT, UPDATE and
+-- DELETE examples are commented out. Copy one into your SQL client and adjust
+-- the ids before running it, so a stray "run all" can never change real data.
 
 USE student_result_db;
 
@@ -9,20 +13,20 @@ USE student_result_db;
 -- ============================================
 
 -- Insert a new student
-INSERT INTO students (registration_number, full_name, email, department, semester, academic_year)
-VALUES ('2024CS999', 'Test Student', 'test@student.edu', 'Computer Science', 3, '2024-2025');
+-- INSERT INTO students (registration_number, full_name, email, department, semester, academic_year)
+-- VALUES ('2024CS999', 'Test Student', 'test@student.edu', 'Computer Science', 3, '2024-2025');
 
 -- Insert a new subject
-INSERT INTO subjects (subject_code, subject_name, credits, semester)
-VALUES ('CS399', 'Test Subject', 3.0, 3);
+-- INSERT INTO subjects (subject_code, subject_name, credits, semester)
+-- VALUES ('CS399', 'Test Subject', 3.0, 3);
 
 -- Insert a new examination
-INSERT INTO examinations (exam_name, academic_year, semester, exam_date)
-VALUES ('Test Examination', '2024-2025', 3, '2024-12-25');
+-- INSERT INTO examinations (exam_name, academic_year, semester, exam_date)
+-- VALUES ('Test Examination', '2024-2025', 3, '2024-12-25');
 
 -- Insert marks for a student
-INSERT INTO marks (student_id, subject_id, exam_id, marks_obtained, maximum_marks)
-VALUES (1, 1, 2, 85.00, 100.00);
+-- INSERT INTO marks (student_id, subject_id, exam_id, marks_obtained, maximum_marks)
+-- VALUES (1, 1, 2, 85.00, 100.00);
 
 -- ============================================
 -- SELECT OPERATIONS
@@ -64,24 +68,24 @@ JOIN examinations e ON m.exam_id = e.exam_id;
 -- ============================================
 
 -- Update student information
-UPDATE students 
-SET email = 'newemail@vit.edu' 
-WHERE student_id = 1;
+-- UPDATE students 
+-- SET email = 'newemail@vit.edu' 
+-- WHERE student_id = 1;
 
 -- Update marks
-UPDATE marks 
-SET marks_obtained = 90.00 
-WHERE mark_id = 1;
+-- UPDATE marks 
+-- SET marks_obtained = 90.00 
+-- WHERE mark_id = 1;
 
 -- ============================================
 -- DELETE OPERATIONS
 -- ============================================
 
 -- Delete a marks record (safe test record)
-DELETE FROM marks WHERE mark_id = 999;
+-- DELETE FROM marks WHERE mark_id = 999;
 
 -- Delete a student (cascade will delete related marks)
-DELETE FROM students WHERE student_id = 999;
+-- DELETE FROM students WHERE student_id = 999;
 
 -- ============================================
 -- MULTI-TABLE JOIN
