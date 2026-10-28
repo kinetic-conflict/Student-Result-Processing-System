@@ -1,5 +1,6 @@
-"""Faculty status and subject assignments."""
+"""Faculty status, subject assignments and deletion."""
 from db import execute_query, is_duplicate_error, transaction
+from services import audit
 from services.validation import ValidationError
 
 
@@ -10,6 +11,38 @@ def set_active(faculty_id, active):
         cursor.execute('UPDATE faculty SET is_active = %s WHERE faculty_id = %s', (flag, faculty_id))
         cursor.execute('UPDATE users SET is_active = %s, session_version = session_version + 1 '
                        'WHERE faculty_id = %s', (flag, faculty_id))
+
+
+def delete_faculty(faculty_id, actor, ip=None):
+    """Permanently delete a faculty member, their login and their subject assignments.
+
+    Marks, assessment marks and results have no link to faculty, so nothing that belongs to a
+    student is touched. The login goes first because `users.faculty_id` refuses to leave a login
+    pointing at a missing faculty row. Everything, including the audit entry, is one transaction:
+    on any failure all of it is rolled back. Returns what was removed.
+    Raises LookupError when there is no such faculty member.
+    """
+    with transaction() as cursor:
+        cursor.execute('SELECT employee_id, full_name FROM faculty WHERE faculty_id = %s FOR UPDATE',
+                       (faculty_id,))
+        member = cursor.fetchone()
+        if member is None:
+            raise LookupError('That faculty member does not exist.')
+        cursor.execute('SELECT user_id, username FROM users WHERE faculty_id = %s FOR UPDATE',
+                       (faculty_id,))
+        login = cursor.fetchone()
+        cursor.execute('DELETE FROM faculty_assignments WHERE faculty_id = %s', (faculty_id,))
+        assignments = cursor.rowcount
+        if login:
+            cursor.execute('DELETE FROM users WHERE user_id = %s', (login['user_id'],))
+        cursor.execute('DELETE FROM faculty WHERE faculty_id = %s', (faculty_id,))
+        removed = {'employee_id': member['employee_id'], 'full_name': member['full_name'],
+                   'username': login['username'] if login else None, 'assignments': assignments}
+        audit.record(actor, 'faculty.delete', 'faculty', faculty_id,
+                     f"{removed['employee_id']} {removed['full_name']}; "
+                     f"{'login ' + removed['username'] if login else 'no login'}; "
+                     f'{assignments} subject assignment(s) removed', ip, cursor)
+    return removed
 
 
 def assigned_subjects(faculty_id):

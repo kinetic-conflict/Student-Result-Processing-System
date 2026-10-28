@@ -108,6 +108,22 @@ def activate_faculty(faculty_id):
     return _set_status(faculty_id, True)
 
 
+@faculty_admin_bp.route('/<int:faculty_id>/delete', methods=['POST'])
+def delete_faculty(faculty_id):
+    """Permanently remove a faculty member, their login and their assignments (never any marks)."""
+    try:
+        removed = faculty_service.delete_faculty(faculty_id, g.user, client_ip())
+    except LookupError:
+        abort(404)
+    except MySQLError:
+        flash('The faculty member could not be deleted and nothing was changed. Please try again.', 'error')
+    else:
+        flash(f"Faculty member {removed['employee_id']} deleted, with their login and "
+              f"{removed['assignments']} subject assignment(s). Student marks and results are unchanged.",
+              'success')
+    return redirect(url_for('faculty_admin.list_faculty'))
+
+
 @faculty_admin_bp.route('/<int:faculty_id>/assignments')
 def assignments(faculty_id):
     return render_template('faculty_admin/assignments.html', member=_faculty_or_404(faculty_id),

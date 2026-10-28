@@ -235,11 +235,18 @@ deleted by accident.
 | full_name | VARCHAR(100) | NOT NULL | |
 | email | VARCHAR(100) | UNIQUE | |
 | department | VARCHAR(50) | | |
-| is_active | TINYINT(1) | NOT NULL, DEFAULT 1 | Faculty are deactivated, not deleted |
+| is_active | TINYINT(1) | NOT NULL, DEFAULT 1 | Deactivate to suspend (reversible); Delete removes the person for good (see below) |
 
 ### 9. faculty_assignments (migration 001)
 
 Which subjects a faculty member may enter marks for. `UNIQUE (faculty_id, subject_id)`; both keys cascade on delete.
+
+**Deleting a faculty member** (`services/faculty_service.py: delete_faculty`, administrators only) removes exactly three
+things in one transaction: the `faculty_assignments` rows, the linked `users` row, then the `faculty` row, and it writes a
+`faculty.delete` audit entry in the same transaction. The login must go first because `users.faculty_id` is
+`ON DELETE RESTRICT`. No student-owned table (`marks`, `assessment_marks`, `students`, `subjects`, `examinations`,
+`assessments`) has a column that points at faculty, so none of them can be reached by the deletion. The audit entries a
+deleted login wrote earlier are kept: `audit_log.user_id` becomes NULL, and the copied `username` still names them.
 
 **Who counts as "their" students.** The schema has no classes or sections, so the cohort of a subject is the set of
 students whose `semester` equals the subject's `semester`. This rule lives in one function
@@ -347,6 +354,31 @@ The database follows Third Normal Form (3NF):
 - CHECK constraints ensure marks are valid (non-negative, not exceeding maximum)
 - Assessment weights sum to 100%
 
+## Examinations and assessments: two separate models
+
+| | Examination marks (`marks`) | Assessment marks (`assessment_marks`) |
+|--|--|--|
+| Kind of thing | A named sitting (`examinations`: name, academic year, semester, date) | A weighted component of a subject (`assessments`: CAT1 ... ENDSEM) |
+| One row is | one student, one subject, one examination | one student, one subject, one component |
+| Maximum | stored on each mark (`maximum_marks`) | one per component (`assessments.maximum_marks`) |
+| Weight | none; the overall result is total obtained / total maximum | per component (`weight_percentage`), total 100 |
+| Result | pass only if every subject reaches 40% | weighted total out of 100, then the grade bands |
+| Who may enter | administrators | administrators, and faculty for their subjects |
+
+They are deliberately **not** linked: no foreign key joins them, and changing one never changes the other. The
+`ENDSEM` component and an "End Semester Examination" overlap in meaning, and the old migration copies one into the
+other once; after that they are independent. Which examination (if any) should feed `ENDSEM` is an open decision.
+
+Missing is not zero. A component that has not been entered has **no row**, and the weighted result is
+"Incomplete". A score of zero is a real row and counts. Results are never stored: they are calculated from the marks
+whenever a page is shown, so editing a mark changes the result immediately.
+
+`assessment_marks` has no examination or academic-year column: a student has one mark per subject and component for
+good, so a re-attempt overwrites the first. Adding that context is a schema and policy decision (see the README).
+
+`database/integrity_checks.sql` is a read-only script that reports weights not totalling 100, marks above a lowered
+maximum, duplicated examinations and marks whose semesters disagree. Run it on any database before and after changes.
+
 ## Migration Strategy
 
 Two things exist, for historical reasons:
@@ -372,6 +404,9 @@ All of it is synthetic: invented people, invented numbers, and the reserved `.ex
 - 6 examinations (4 original + 2 new)
 - 28 legacy marks (`marks`), copied into `assessment_marks` as `ENDSEM` by the migration (see caveat above)
 - 6 assessment components
+
+Sample **assessment marks** are not part of the seed files. `flask --app app seed-demo` adds them on request for the
+synthetic students only (see the README); it never changes an existing mark.
 
 ### VIT-Style Students Examples
 

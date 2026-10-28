@@ -36,6 +36,11 @@
                     <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
                 </form>
                 {% endif %}
+                <form method="post" class="d-inline" action="{{ url_for('faculty_admin.delete_faculty', faculty_id=member.faculty_id) }}">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-danger"
+                            data-confirm="Permanently delete {{ member.full_name }}, their login and their subject assignments? Student marks and results are not affected. This cannot be undone.">Delete</button>
+                </form>
             </td>
         </tr>
         {% else %}

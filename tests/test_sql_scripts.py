@@ -6,7 +6,8 @@ from tests.conftest import DATABASE_DIR, run_script
 from tests.helpers import SETUP_ORDER, apply_setup, table_counts
 
 SEED_FILES = ['seed.sql', 'seed_vit_students.sql']
-ALL_SCRIPTS = SETUP_ORDER + ['queries.sql', 'verification.sql']
+READ_ONLY = ['queries.sql', 'verification.sql', 'integrity_checks.sql']
+ALL_SCRIPTS = SETUP_ORDER + READ_ONLY
 
 
 def code_only(name, keep_strings=False):
@@ -21,7 +22,7 @@ def test_no_shipped_script_can_destroy_data(name):
     assert not re.search(r'\b(DROP|TRUNCATE)\b|\bDELETE\s+FROM\b', code_only(name), re.IGNORECASE)
 
 
-@pytest.mark.parametrize('name', ['queries.sql', 'verification.sql'])
+@pytest.mark.parametrize('name', READ_ONLY)
 def test_reference_scripts_are_read_only(name):
     assert not re.search(r'\b(INSERT|UPDATE|ALTER|CREATE|REPLACE)\b', code_only(name), re.IGNORECASE)
 
@@ -72,7 +73,7 @@ def test_rerunning_schema_keeps_existing_rows(empty_db):
     cursor.close()
 
 
-@pytest.mark.parametrize('name', ['queries.sql', 'verification.sql'])
+@pytest.mark.parametrize('name', READ_ONLY)
 def test_reference_scripts_run_clean_and_leave_data_untouched(empty_db, name):
     db_name, connection = empty_db
     apply_setup(connection, db_name)

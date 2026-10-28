@@ -1,11 +1,12 @@
-"""Command-line tasks: `flask --app app create-admin` and `flask --app app migrate`."""
+"""Command-line tasks: `flask --app app` create-admin, migrate, backup and seed-demo."""
 import click
 from flask.cli import with_appcontext
+from mysql.connector import Error as MySQLError
 
 from db import DatabaseUnavailable, get_db_connection
 from flask import current_app
 
-from services import auth_service, migrations
+from services import auth_service, demo_data, migrations
 from services.backup import BackupError, run_backup
 from services.validation import ValidationError
 
@@ -66,7 +67,35 @@ def backup(output_dir, mysqldump):
     click.echo(f'Backup written to {path} ({path.stat().st_size} bytes) and verified.')
 
 
+@click.command('seed-demo')
+@click.option('--yes', is_flag=True, help='Skip the confirmation question.')
+@with_appcontext
+def seed_demo(yes):
+    """Add synthetic sample assessment marks for the sample students (never for real students)."""
+    try:
+        plan = demo_data.plan()
+        if not plan.rows:
+            click.echo('Nothing to add: the sample marks are already in the database.' if plan.existing
+                       else 'Nothing to add: no sample students with examination marks were found '
+                            f'(students with an {demo_data.SYNTHETIC_EMAIL_SUFFIX} email). '
+                            'Load database/seed.sql first.')
+            return
+        click.echo(f'Will add {len(plan.rows)} sample assessment marks for {plan.students} students '
+                   f'(the synthetic ones, with an {demo_data.SYNTHETIC_EMAIL_SUFFIX} email). '
+                   f'{plan.existing} sample marks already exist. '
+                   'Existing marks are never changed or removed.')
+        if not yes:
+            click.confirm('Add them now?', abort=True)
+        added = demo_data.apply(plan)
+    except DatabaseUnavailable as error:
+        raise click.ClickException(str(error))
+    except MySQLError:
+        raise click.ClickException('The sample marks could not be added. Nothing was changed.')
+    click.echo(f'Added {added} sample assessment marks.')
+
+
 def init_app(app):
     app.cli.add_command(create_admin)
     app.cli.add_command(migrate)
     app.cli.add_command(backup)
+    app.cli.add_command(seed_demo)

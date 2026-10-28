@@ -7,7 +7,7 @@ A Flask + MySQL web application for managing student academic results, with sign
 
 | Role | Can do |
 |------|--------|
-| **Administrator** | Manage students, subjects, examinations, faculty and their subject assignments. Create, edit, deactivate accounts and reset passwords. Enter or correct any mark. Change the assessment weights. Read the audit log and all reports. |
+| **Administrator** | Manage students, subjects, examinations, faculty (add, edit, deactivate, delete) and their subject assignments. Create, edit, deactivate accounts and reset passwords. Enter or correct any mark. Change the assessment weights. Read the audit log and all reports. |
 | **Faculty** | See their own subjects. Enter and correct marks **only** for subjects assigned to them, for students in that subject's semester. See results for those subjects. |
 | **Student** | See **only their own** results, assessment by assessment, and print their own marksheet. |
 
@@ -100,6 +100,9 @@ source database/seed_vit_students.sql;    -- optional: more synthetic sample dat
 exit
 ```
 
+Sample *assessment marks* are not in those files. To add them for the synthetic students only, run
+`flask --app app seed-demo` (see [Sample marks](#sample-marks)) after the steps below.
+
 Then, back in PowerShell with the virtual environment active:
 
 ```powershell
@@ -137,6 +140,9 @@ from the Accounts page.
 
 **Administrator**
 1. *Administration, Faculty*: add faculty members. Open *Subjects* on a row to assign the subjects they teach.
+   *Deactivate* suspends a person and can be undone. *Delete* is permanent: it removes the person, their login and
+   their subject assignments, after a confirmation. Student marks and results are never touched, and the deletion is
+   written to the audit log.
 2. *Administration, Accounts*: *New account* creates one login (admin, faculty or student) and shows a **temporary
    password once**. *Create all student accounts* does it for everyone who has none, with one password each, on a
    page you can print. Copy them then; they cannot be looked up later.
@@ -149,6 +155,34 @@ semester against every component. Leave a box empty to keep the stored mark. Out
 rejected and nothing is saved.
 
 **Students**: *My results* shows their results; *Marksheet* is a print-ready page.
+
+## Sample marks
+
+`flask --app app seed-demo` adds synthetic continuous-assessment marks so the grids, results and reports have something
+to show. It is explicit (nothing runs it for you) and cautious:
+
+- It only touches students whose email ends in `@students.example`, the reserved domain of the sample seed files.
+  Real students are never read or written.
+- It only adds marks that are missing. An existing mark is never changed or removed, and running it again adds nothing.
+- It prints how many marks it will add and asks before writing (`--yes` skips the question). The run is audited.
+- The numbers are deterministic, not random: each component is the student's end-semester percentage plus a fixed
+  offset, rounded to the nearest half mark. A few records are deliberately left unfinished (no row, so the result is
+  *Incomplete*) and one has a real zero, so the sample shows that missing and zero are different.
+
+Which subjects a sample student has marks in comes from the examination marks that student already has, because the
+schema has no enrolment table.
+
+## Examinations and assessments
+
+They are two separate things and stay separate (details in `docs/database_design.md`).
+
+- An **examination** is a named sitting (name, academic year, semester). Its marks (the *Marks* page) each carry their
+  own maximum. The same name, year and semester cannot be added twice.
+- An **assessment component** (CAT1, CAT2, CAT3, ASSIGN, PROJECT, ENDSEM) has one maximum and one weight, and its marks
+  (the *Assessments* page) combine into the weighted result.
+- A component that was never entered is *missing* and makes the result *Incomplete*. A zero is a real mark.
+- `database/integrity_checks.sql` is a read-only check of both: run `source database/integrity_checks.sql;` at the MySQL
+  prompt. No rows means no problem; rows starting "Review:" are questions, not errors.
 
 ## Security notes
 
@@ -203,13 +237,17 @@ mark entry rules, result calculations and the audit log.
 | `migrations/NNN_*.sql` | Accounts, faculty, audit log | Run through `flask --app app migrate`; each applies once |
 | `seed.sql`, `seed_vit_students.sql` | **Synthetic** sample data | Yes; rows are matched on their natural keys |
 | `queries.sql` | Reference queries; the INSERT/UPDATE/DELETE examples are commented out | Yes (read-only) |
-| `verification.sql` | Integrity checks | Yes (read-only) |
+| `verification.sql` | Demonstration checks for the course assessments | Yes (read-only) |
+| `integrity_checks.sql` | Data checks: weights, ranges, duplicate examinations, semester mismatches | Yes (read-only) |
 
 ## Known limitations
 
 - No email, so no self-service password recovery: an administrator resets passwords.
 - A faculty member's students are those in the subject's semester. The schema has no classes or sections.
 - An account's role and linked record are fixed when it is created.
+- Assessment marks have no examination or academic year: one mark per student, subject and component, so a re-attempt
+  overwrites the first. Examination marks are not checked against the subject's semester. Both are policy questions.
+- A faculty member who is deleted is gone for good. Deactivate instead if the person may return.
 - Legacy per-examination marks can only be changed by administrators; faculty work with assessment marks.
 - The weighted result needs all six components; there is no "absent" or "withheld" status because none was defined.
 - The "top performers" (85%) and "incomplete" (fewer than 5 subjects) reports use working assumptions, stated on the pages.

@@ -20,6 +20,17 @@ def _parse(form):
     )
 
 
+def _ensure_new(values, exam_id=0):
+    """One examination per name, academic year and semester (the database compares names ignoring case).
+
+    `exam_id` is the examination being edited, so saving it again unchanged is not a clash.
+    """
+    name, year, semester, _ = values
+    if execute_query('SELECT 1 FROM examinations WHERE exam_name = %s AND academic_year = %s '
+                     'AND semester = %s AND exam_id <> %s', (name, year, semester, exam_id)):
+        raise ValidationError('An examination with this name, academic year and semester already exists.')
+
+
 def _find(exam_id):
     rows = execute_query('SELECT * FROM examinations WHERE exam_id = %s', (exam_id,))
     return rows[0] if rows else None
@@ -38,6 +49,7 @@ def add_examination():
     if request.method == 'POST':
         try:
             values = _parse(request.form)
+            _ensure_new(values)
             exam_id = execute_update(
                 'INSERT INTO examinations (exam_name, academic_year, semester, exam_date) '
                 'VALUES (%s, %s, %s, %s)', values)
@@ -62,6 +74,7 @@ def edit_examination(exam_id):
     if request.method == 'POST':
         try:
             values = _parse(request.form)
+            _ensure_new(values, exam_id)
             execute_update(
                 'UPDATE examinations SET exam_name = %s, academic_year = %s, semester = %s, '
                 'exam_date = %s WHERE exam_id = %s', (*values, exam_id))
